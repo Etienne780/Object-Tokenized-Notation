@@ -1,0 +1,1199 @@
+<!-- Generated with DocForge v1.3.0 -->
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OTNFile</title>
+  <style>:root {
+  --bg: #0d0f14;
+  --bg1: #13161e;
+  --bg2: #1a1e28;
+  --brd: #1e2438;
+  --text: #dde0e8;
+  --text2: #8890a8;
+  --muted: #6b7494;
+  --accent: #5b8af5;
+  --accent-hover: #4a76e0;
+  --link: #7ba8ff;
+  --link-ul: #5070c0;
+  --cbg: #080a10;
+  --cbrd: #1a1e2c;
+  --ctext: #8890a8;
+  --ctag-text: #7ac4a0;
+  --heading-color: #eef0f8;
+  --header-height: 60px;
+  --font-size: 15px;
+  --font-size-code: 14px;
+  --font-size-code-tag: 13px;
+  --h1: 32px;
+  --h2: 24px;
+  --h3: 18px;
+  --h4: 14px;
+  --max-width: 1300px;
+  --padding: 24px;
+  --code-radius: 4px;
+  --gap-p: 16px;
+  --gap-h: 24px;
+  --gap-code: 32px;
+  --line-height: 1.75;
+  --code-line-height: 1.65;
+  --sidebar-width: 225px;
+  --toc-width: 200px;
+  --list-gap: 4px;
+  --table-pad: 7px;
+  --bq-border: 3px;
+  --bq-radius: 5px;
+  --scrollbar-size: 6px;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+/* -- Reset ---------------------------------------------------------------- */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* -- Spacing scale (static — not theme-controlled) ------------------------ */
+:root {
+  --indent-spacing: 16px;
+  --sp-xxs: 4px;
+  --sp-xs:  8px;
+  --sp-s:   12px;
+  --sp-m:   16px;
+  --sp-l:   20px;
+  --sp-xl:  24px;
+  --sp-xxl:  28px;
+}
+
+/* -- Base ------------------------------------------------------------------- */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+  
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--font-size);
+  line-height: var(--line-height, 1.8);
+}
+
+.document {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  z-index: 9999;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* -- Scrollbars ---------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg1);
+  border-radius: 1px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg2);
+}
+::-webkit-scrollbar-corner {
+  background: var(.bg);
+}
+
+/* -- Layout ------------------------------------------------------------- */
+.layout { 
+  display: flex; 
+  flex: 1;
+  min-height: 0px;
+}
+
+.content-col { 
+  display: flex; 
+  flex-direction: column; 
+  flex: 1; 
+  min-width: 0; 
+}
+
+/* -- Header ------------------------------------------------------------- */
+.doc-header {
+  z-index: 30;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--padding);
+  flex-shrink: 0;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.doc-header.header-style-solid {
+  background: var(--bg1);
+  border-bottom: 1px solid var(--brd);
+}
+.doc-header.hidden-scrolled {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+.doc-header .header-title {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  color: var(--text2);
+  font-weight: 600;
+}
+/* header-show:never */
+.doc-header.header-never { display: none; }
+
+
+/* -- TOC ------------------------------------------------------------ */
+.toc {
+  width: var(--toc-width, 200px);
+  flex-shrink: 0;
+  padding: 40px 0 40px 16px;
+  position: sticky;
+  top: 0;
+  height: 100%;
+  overflow-y: auto;
+  border-left: 1px solid var(--brd);
+}
+.toc.toc-left {
+  border-left: none;
+  border-right: 1px solid var(--brd);
+  padding: 40px 16px 40px 0;
+  order: -1;
+}
+.toc.toc-hidden { display: none; }
+@media (max-width: 1100px) { .toc.toc-desktop { display: none; } }
+.toc-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 10px;
+  padding-left: 8px;
+}
+.toc-link {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding: 3px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  border-bottom: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color .15s, background .15s;
+}
+.toc-link:hover { color: var(--accent-hover); background: color-mix(in srgb, var(--accent) 8%, transparent); border-bottom: none; }
+.toc-link.active { color: var(--accent); }
+.toc-link[data-level="2"] { padding-left: 16px; }
+.toc-link[data-level="3"] { padding-left: 26px; font-size: 10px; }
+.toc-link[data-level="4"] { padding-left: 36px; font-size: 10px; }
+
+/* Nav verstecken via content-show-nav:never */
+.nav.nav-hidden { display: none; }
+
+/* -- Sidebar --------------------------------------------------------- */
+.nav { width: var(--sidebar-width, 200px); background: var(--bg1); border-right: 1px solid var(--brd); padding: 20px 0; position: sticky; top: 0; height: 100%; overflow-y: auto; flex-shrink: 0; }
+.nav-brand { padding: 0 16px 16px; font-size: 18px; color: var(--accent); font-family: var(--font-heading); font-style: italic; border-bottom: 1px solid var(--brd); margin-bottom: 8px; }
+.nav-brand small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; font-style: normal; }
+.sidebar-section { display: none; }
+.sidebar-section.active { display: block; }
+.nav-row { display: flex; align-items: center; gap: 4px; padding: 3px 0; padding-left: var(--indent, 16px); border-bottom: unset; color: var(--muted); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .15s; text-decoration: none; cursor: pointer; }
+.nav-row:hover { color: var(--accent); }
+.nav-row--parent { color: var(--text2); font-weight: 600; margin-top: 6px; border-bottom: unset; }
+.nav-row--parent .nav-link { color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; border-bottom: unset; }
+.nav-row--parent .nav-link:hover { color: var(--accent); }
+.nav-chevron-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 20px; padding: 0 4px; line-height: 1; transition: color .15s, transform .2s; }
+.nav-chevron-btn:hover { color: var(--accent); }
+.nav-children { overflow: hidden; transition: max-height .2s ease, opacity .15s ease; max-height: 2000px; opacity: 1; }
+.nav-group.collapsed .nav-children { max-height: 0; opacity: 0; }
+.nav-group.collapsed .nav-chevron-btn { transform: rotate(-90deg); }
+
+/* Active node highlighting in sidebar */
+.nav-row.active {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border-left: 3px solid var(--accent);
+  margin-left: -3px;
+}
+
+/* -- Tab navigation bar --------------------------------------------------- */
+.tab-nav { display: flex; align-items: stretch; background: var(--bg1); border-bottom: 2px solid var(--brd); overflow-x: auto; scrollbar-gutter: stable; padding: 0 var(--padding); position: sticky; top: 0; z-index: 20; flex-shrink: 0; }
+.tab-nav.hidden { display: none; }
+.tab-btn { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: 0px; padding: 12px 18px; cursor: pointer; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); transition: color .15s, border-color .15s; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* -- Dynamic content area with crossfade ---------------------------------- */
+.content-stage {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+.dynamic-content {
+  padding: 40px var(--padding);
+  max-width: var(--max-width);
+  transition: opacity 0.2s ease-in-out;
+  opacity: 1;
+  flex: 1;
+  overflow: auto;
+}
+.dynamic-content.fade-out {
+  opacity: 0;
+}
+.preview-root {
+  padding: var(--padding);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+/* -- Hidden templates container -------------------------------------------- */
+.node-templates {
+  display: none;
+}
+
+/* -- Headings -------------------------------------------------------------- */
+h1 { font-family: var(--font-heading); font-size: var(--h1); font-weight: 600; letter-spacing: -0.02em; margin: 0 0 var(--sp-m); color: var(--heading-color); line-height: 1.3; }
+h2 { font-family: var(--font-heading); font-size: var(--h2); font-weight: 600; margin: var(--gap-h) 0 10px; color: var(--heading-color); }
+h3 { font-family: var(--font-mono); font-size: var(--h3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--heading-color); margin: 24px 0 8px; }
+h4 { font-family: var(--font-mono); font-size: var(--h4); color: var(--heading-color); margin: 18px 0 6px; }
+
+/* -- Body text ------------------------------------------------------------- */
+p { font-family: var(--font-body); margin: 0 0 var(--gap-p); line-height: 1.75; color: var(--text); }
+a { color: var(--link); text-decoration: none; border-bottom: 1px solid var(--link-ul); transition: border-color .12s; }
+a:hover { border-color: var(--link); }
+strong { font-weight: 600; color: var(--text); }
+em { font-style: italic; color: var(--accent); }
+
+/* -- Inline code ----------------------------------------------------------- */
+code { font-family: var(--font-mono); font-size: var(--font-size-code); background: var(--cbg); color: var(--ctext); padding: var(--sp-xxs) var(--sp-xs); border-radius: 3px; border: 2px solid var(--brd); }
+
+/* -- Code blocks ----------------------------------------------------------- */
+pre { position: relative; background: var(--cbg); border: 2px solid var(--cbrd); border-radius: var(--code-radius); padding: var(--sp-s) var(--sp-m); margin: 0 0 var(--sp-s); overflow-x: auto; }
+pre code { background: none; border: none; padding: 0; font-size: var(--font-size-code); line-height: var(--code-line-height, 1.65); color: var(--ctext); }
+.code-block-wrapper { min-width: 250px; margin-top: var(--gap-code); position: relative; display: flex; flex-direction: column; width: 100%; }
+.code-block-wrapper pre { margin: 0 0 var(--sp-xs); border-radius: 0 6px 6px 6px; }
+.code-language-tag { position: absolute; display: flex; align-items: center; justify-content: center; height: calc(var(--font-size-code-tag) + var(--sp-xs) + 2px); top: calc(-1 * (var(--font-size-code-tag) + var(--sp-xs))); width: fit-content; padding: 0 var(--sp-xs); border: 2px solid var(--cbrd); border-bottom: none; border-radius: 4px 4px 0 0; background: var(--cbg); font-family: var(--font-mono); font-size: var(--font-size-code-tag); color: var(--ctag-text); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* -- Lists ----------------------------------------------------------------- */
+ul, ol { padding-left: 24px; margin: 8px 0 var(--gap-p); font-family: var(--font-body); color: var(--text); }
+li { margin: var(--list-gap, 4px) 0; line-height: 1.7; }
+
+/* -- Blockquote ------------------------------------------------------------ */
+blockquote {
+  margin: 14px 0; 
+  padding: 8px 14px; 
+  background: color-mix(in srgb, var(--accent) 8%, transparent); 
+  color: var(--muted); 
+  border-radius: 0 var(--bq-radius, 5px) var(--bq-radius, 5px) 0;
+  border-left: var(--bq-border, 3px) solid var(--accent);
+  font-style: italic; 
+  font-family: var(--font-body); 
+  overflow: auto;
+}
+
+/* -- Misc ------------------------------------------------------------------ */
+hr { border: none; border-top: 1px solid var(--brd); margin: 24px 0; }
+
+/* -- Tables ---------------------------------------------------------------- */
+table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: var(--font-size); }
+th { padding: var(--table-pad, 7px) 12px; background: var(--bg2); border: 1px solid var(--brd); text-align: left; font-family: var(--font-mono); font-size: var(--font-size); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+td { padding: var(--table-pad, 7px) 12px; border: 1px solid var(--brd); font-family: var(--font-body); color: var(--text); }
+
+.nav-row:hover { color: var(--accent-hover); }
+.tab-btn:hover { color: var(--accent-hover); }
+a:hover { border-color: var(--accent-hover); color: var(--accent-hover); }
+
+.indent-0 { --indent: calc(var(--indent-spacing) * 1) }
+.indent-1 { --indent: calc(var(--indent-spacing) * 2) }
+.indent-2 { --indent: calc(var(--indent-spacing) * 3) }
+.indent-3 { --indent: calc(var(--indent-spacing) * 4) }
+.indent-4 { --indent: calc(var(--indent-spacing) * 5) }</style>
+  </head>
+  <body>
+  <div class="document">
+    
+  <header class="doc-header header-style-solid" id="docHeader">
+    <span class="header-title">OTNFile</span>
+  </header>
+    <div class="layout">
+      <nav class="nav">
+    
+    <div class="sidebar-section active" data-tab="tab_mpiiqu1f4phdrb12seze3">
+    
+      <div class="nav-group" id="navg-node_mpiiqu1f10av0rf14boas6">
+        <div class="nav-row nav-row--parent indent-0" data-node-id="node_mpiiqu1f10av0rf14boas6" data-tab-id="tab_mpiiqu1f4phdrb12seze3">
+          <a class="nav-link" href="#node_mpiiqu1f10av0rf14boas6">Getting Started</a>
+          <button class="nav-chevron-btn" data-toggle-group="navg-node_mpiiqu1f10av0rf14boas6" aria-label="toggle section">▾</button>
+        </div>
+        <div class="nav-children">
+          <a class="nav-row indent-1" data-node-id="node_mpiiqu1fvg7mbd10uuoc8" data-tab-id="tab_mpiiqu1f4phdrb12seze3" href="#node_mpiiqu1fvg7mbd10uuoc8">Writing Data</a>
+<a class="nav-row indent-1" data-node-id="node_mpiiqu1f18333i9djq0by" data-tab-id="tab_mpiiqu1f4phdrb12seze3" href="#node_mpiiqu1f18333i9djq0by">Reading Data</a>
+<a class="nav-row indent-1" data-node-id="node_mpiiqu1f915e7puv35vc" data-tab-id="tab_mpiiqu1f4phdrb12seze3" href="#node_mpiiqu1f915e7puv35vc">Custom Types</a>
+<a class="nav-row indent-1" data-node-id="node_mpiiqu1f204tmi1ta570m" data-tab-id="tab_mpiiqu1f4phdrb12seze3" href="#node_mpiiqu1f204tmi1ta570m">Streaming</a>
+        </div>
+      </div>
+  </div>
+<div class="sidebar-section" data-tab="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <a class="nav-row indent-0" data-node-id="node_mpiiqu1f14aozgjz62bva" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv" href="#node_mpiiqu1f14aozgjz62bva">Type System</a>
+<a class="nav-row indent-0" data-node-id="node_mpiiqu1f15giw6ayh714p" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv" href="#node_mpiiqu1f15giw6ayh714p">Type Conversion</a>
+<a class="nav-row indent-0" data-node-id="node_mpiiqu1f1d3kmgdkicb5r" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv" href="#node_mpiiqu1f1d3kmgdkicb5r">OTNObject</a>
+<a class="nav-row indent-0" data-node-id="node_mpiiqu1fbbo5s3lq069u" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv" href="#node_mpiiqu1fbbo5s3lq069u">OTNObjectBuilder</a>
+<a class="nav-row indent-0" data-node-id="node_mpiiqu1f16f9gcr1aubcul" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv" href="#node_mpiiqu1f16f9gcr1aubcul">Writer Internals</a>
+<a class="nav-row indent-0" data-node-id="node_mpiiqu1f1szegxq1n6ulo2" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv" href="#node_mpiiqu1f1szegxq1n6ulo2">Reader &amp; Parser</a>
+<a class="nav-row indent-0" data-node-id="node_mpiiqu1fhmy0fv1tpp17t" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv" href="#node_mpiiqu1fhmy0fv1tpp17t">File Format</a>
+  </div>
+  </nav>
+      <div class="content-col">
+        <div class="tab-nav" id="tabNav"><button class="tab-btn active" data-tab="tab_mpiiqu1f4phdrb12seze3">
+      Guide
+    </button>
+<button class="tab-btn" data-tab="tab_mpiiqu1f1fvnf6l1seyyuv">
+      Internals
+    </button></div>
+        
+  <div class="content-stage">
+    <div id="dynamicContent" class="dynamic-content">
+      <!-- Initial content will be filled by JS -->
+    </div>
+    
+  <aside class="toc" id="tocSidebar">
+    <div class="toc-title">Table of content:</div>
+    <nav id="tocLinks"></nav>
+  </aside>
+  </div>
+  <div class="node-templates">
+    <template id="tmpl-node_mpiiqu1f10av0rf14boas6">
+  <div class="main" data-node-id="node_mpiiqu1f10av0rf14boas6" data-tab-id="tab_mpiiqu1f4phdrb12seze3">
+    <section id="node_mpiiqu1f10av0rf14boas6" class="export-section">
+    
+    <div class="export-section__body"><h1>Getting Started</h1>
+<p>OTN (Object Tokenized Notation) is a text-based serialization format that stores structured data in a tabular style — similar to a spreadsheet or database table. Data is organized in <strong>named objects</strong>, each with typed columns and any number of data rows.</p>
+<h2>What you need</h2>
+<p>Only two files are required:</p>
+<ul><li><code>OTNFile.h</code> — the full API header</li><li><code>OTNFile.cpp</code> — the implementation</li></ul>
+<p>Add both to your project and include the header:</p>
+<div class="code-block-wrapper"><pre><code>#include &quot;OTNFile.h&quot;</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>How it works</h2>
+<p>Everything is built around <code>OTNObject</code>, which is like a table: it has a name, column names, column types, and rows of data. You build one or more objects in memory, write them to a <code>.otn</code> file with <code>OTNWriter</code>, and read them back with <code>OTNReader</code>.</p>
+<h2>Requirements</h2>
+<ul><li>C++17 or later</li><li>Tested on Windows</li></ul>
+<hr>
+<blockquote><strong>Tip:</strong> The <code>.otn</code> extension is added automatically if you omit it from any file path.</blockquote></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1fvg7mbd10uuoc8">
+  <div class="main" data-node-id="node_mpiiqu1fvg7mbd10uuoc8" data-tab-id="tab_mpiiqu1f4phdrb12seze3">
+    <section id="node_mpiiqu1fvg7mbd10uuoc8" class="export-section">
+    
+    <div class="export-section__body"><h1>Writing Data</h1>
+<p>Use <code>OTNObject</code> to build your data in memory, then <code>OTNWriter</code> to save it to a file.</p>
+<h2>Basic example</h2>
+<div class="code-block-wrapper"><pre><code>OTN::OTNObject obj(&quot;Items&quot;);
+obj.SetNames(&quot;id&quot;, &quot;name&quot;, &quot;value&quot;)
+   .AddDataRow(1, &quot;Sword&quot;,  42.5f)
+   .AddDataRow(2, &quot;Shield&quot;, 17.3f)
+   .AddDataRow(3, &quot;Bow&quot;,     8.1f);
+
+OTN::OTNWriter writer;
+writer.AppendObject(obj)
+      .Save(&quot;data.otn&quot;);</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Setting column types explicitly</h2>
+<p>Types are deduced automatically from the first row you add. If you want to be explicit, call <code>SetTypes()</code> before <code>AddDataRow()</code>:</p>
+<div class="code-block-wrapper"><pre><code>obj.SetNames(&quot;id&quot;, &quot;name&quot;, &quot;value&quot;)
+   .SetTypes(&quot;int&quot;, &quot;String&quot;, &quot;float&quot;)
+   .AddDataRow(1, &quot;Sword&quot;, 42.5f);</code></pre><div class="code-language-tag">cpp</div></div>
+<p>Supported type strings: <code>int</code>, <code>int64</code>, <code>uint64</code>, <code>float</code>, <code>double</code>, <code>bool</code>, <code>String</code>, <code>any</code>, and any custom object name (e.g. <code>&quot;WeaponStats&quot;</code>). Append <code>[]</code> for arrays (e.g. <code>&quot;int[]&quot;</code>).</p>
+<p>Use <code>&quot;-&quot;</code>, <code>&quot;&quot;</code>, or <code>&quot;_&quot;</code> as a placeholder to skip defining a type for that column — it will be deduced from the first inserted row.</p>
+<h2>Multiple objects in one file</h2>
+<div class="code-block-wrapper"><pre><code>OTN::OTNWriter writer;
+writer.AppendObject(itemsObj)
+      .AppendObject(enemiesObj)
+      .AppendObject(configObj)
+      .Save(&quot;gamedata.otn&quot;);</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Serializing to a string</h2>
+<div class="code-block-wrapper"><pre><code>std::string text;
+if (writer.SaveToString(text)) {
+    // text now contains the full OTN content
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Writer options</h2>
+<p>All options are set before calling <code>Save()</code> and support method chaining.</p>
+<table><thead><tr><th>Option</th><th>Method</th><th>Default</th><th>Description</th></tr></thead><tbody><tr><td>DefName</td><td><code>UseDefName(true)</code></td><td>off</td><td>Replaces frequently used column names with numeric IDs to reduce file size</td></tr><tr><td>DefType</td><td><code>UseDefType(true)</code></td><td>off</td><td>Replaces frequently used type names with numeric IDs</td></tr><tr><td>Optimizations</td><td><code>UseOptimizations(true)</code></td><td>off</td><td>Removes all spaces and line breaks from the output</td></tr><tr><td>Deduplication</td><td><code>UseDeduplicateRows(true)</code></td><td>off</td><td>Skips writing identical rows that already exist in the object</td></tr></tbody></table>
+<div class="code-block-wrapper"><pre><code>OTN::OTNWriter writer;
+writer.UseDefName(true)
+      .UseDefType(true)
+      .UseOptimizations(true)
+      .AppendObject(obj)
+      .Save(&quot;data.otn&quot;);</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Error handling</h2>
+<div class="code-block-wrapper"><pre><code>OTN::OTNWriter writer;
+writer.AppendObject(obj);
+if (!writer.Save(&quot;data.otn&quot;)) {
+    std::cerr &lt;&lt; writer.GetError() &lt;&lt; std::endl;
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<p><code>OTNObject</code> itself can also reach an error state. Always check before passing it to the writer:</p>
+<div class="code-block-wrapper"><pre><code>if (!obj.IsValid()) {
+    std::cerr &lt;&lt; obj.GetError() &lt;&lt; std::endl;
+}</code></pre><div class="code-language-tag">cpp</div></div></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f18333i9djq0by">
+  <div class="main" data-node-id="node_mpiiqu1f18333i9djq0by" data-tab-id="tab_mpiiqu1f4phdrb12seze3">
+    <section id="node_mpiiqu1f18333i9djq0by" class="export-section">
+    
+    <div class="export-section__body"><h1>Reading Data</h1>
+<p>Use <code>OTNReader</code> to load a <code>.otn</code> file into memory. All objects are fully parsed and accessible via name lookup.</p>
+<h2>Opening a file</h2>
+<div class="code-block-wrapper"><pre><code>OTN::OTNReader reader;
+if (!reader.ReadFile(&quot;data.otn&quot;)) {
+    std::cerr &lt;&lt; reader.GetError() &lt;&lt; std::endl;
+    return;
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<p>You can also parse from a string:</p>
+<div class="code-block-wrapper"><pre><code>std::string otnText = /* ... */;
+if (!reader.ReadString(otnText)) { /* ... */ }</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Retrieving an object</h2>
+<div class="code-block-wrapper"><pre><code>auto obj = reader.TryGetObject(&quot;Items&quot;);
+if (!obj) {
+    // object not found
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<p><code>TryGetObject</code> returns <code>std::optional&lt;OTNObject&gt;</code>, so it is safe even if the name doesn't exist in the file.</p>
+<h2>Reading values</h2>
+<p>There are three ways to read a value from a row, depending on how much safety you need.</p>
+<p><strong>Throwing access (use when the data must exist):</strong></p>
+<div class="code-block-wrapper"><pre><code>int         id   = obj-&gt;GetValue&lt;int&gt;(0, &quot;id&quot;);
+std::string name = obj-&gt;GetValue&lt;std::string&gt;(0, &quot;name&quot;);
+float       val  = obj-&gt;GetValue&lt;float&gt;(0, &quot;value&quot;);</code></pre><div class="code-language-tag">cpp</div></div>
+<p><strong>With a fallback default (safe, no exception):</strong></p>
+<div class="code-block-wrapper"><pre><code>int   id  = obj-&gt;GetValue&lt;int&gt;(0, &quot;id&quot;, -1);
+float val = obj-&gt;GetValue&lt;float&gt;(0, &quot;value&quot;, 0.0f);</code></pre><div class="code-language-tag">cpp</div></div>
+<p><strong>As <code>std::optional</code> (fully safe):</strong></p>
+<div class="code-block-wrapper"><pre><code>std::optional&lt;int&gt;         id   = obj-&gt;TryGetValue&lt;int&gt;(0, &quot;id&quot;);
+std::optional&lt;std::string&gt; name = obj-&gt;TryGetValue&lt;std::string&gt;(0, &quot;name&quot;);</code></pre><div class="code-language-tag">cpp</div></div>
+<p>All three variants accept either a column name (<code>&quot;id&quot;</code>) or a column index (<code>0</code>).</p>
+<h2>Iterating all rows</h2>
+<div class="code-block-wrapper"><pre><code>for (size_t row = 0; row &lt; obj-&gt;GetRowCount(); ++row) {
+    int id     = obj-&gt;GetValue&lt;int&gt;(row, &quot;id&quot;, -1);
+    auto name  = obj-&gt;TryGetValue&lt;std::string&gt;(row, &quot;name&quot;);
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Reading all objects at once</h2>
+<div class="code-block-wrapper"><pre><code>const auto&amp; allObjects = reader.GetObjects();
+for (const auto&amp; [name, object] : allObjects) {
+    // process each object
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Reading lists / arrays</h2>
+<p>If a column was saved with a vector value (e.g. <code>std::vector&lt;int&gt;</code>), read it back the same way:</p>
+<div class="code-block-wrapper"><pre><code>auto tags = obj-&gt;TryGetValue&lt;std::vector&lt;int&gt;&gt;(0, &quot;tags&quot;);
+if (tags) {
+    for (int t : *tags) { /* ... */ }
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Objects with multiple rows become lists</h2>
+<p>When an <code>OTNObject</code> is stored as a nested value inside another object and that inner object has <strong>more than one row</strong>, it is stored in the file as a list of integer row indices. When reading back, such a column must be read as <code>std::vector&lt;OTNObject&gt;</code> or <code>std::vector&lt;YourCustomType&gt;</code>, not as a single value.</p>
+<div class="code-block-wrapper"><pre><code>// Writing — &quot;inventory&quot; column contains multiple Item rows
+OTN::OTNObject items(&quot;Item&quot;);
+items.SetNames(&quot;name&quot;, &quot;qty&quot;)
+     .AddDataRow(&quot;Sword&quot;, 1)
+     .AddDataRow(&quot;Potion&quot;, 5);
+
+OTN::OTNObject player(&quot;Player&quot;);
+player.SetNames(&quot;name&quot;, &quot;inventory&quot;)
+      .AddDataRow(&quot;Hero&quot;, items); // items has 2 rows → becomes a list
+
+// Reading
+auto items = obj-&gt;TryGetValue&lt;std::vector&lt;OTNObject&gt;&gt;(0, &quot;inventory&quot;);</code></pre><div class="code-language-tag">cpp</div></div>
+<p>A nested object with exactly one row is read back as a single value. The moment it has two or more rows it becomes a list in the file, and you must read it as a list.</p></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f915e7puv35vc">
+  <div class="main" data-node-id="node_mpiiqu1f915e7puv35vc" data-tab-id="tab_mpiiqu1f4phdrb12seze3">
+    <section id="node_mpiiqu1f915e7puv35vc" class="export-section">
+    
+    <div class="export-section__body"><h1>Custom Types</h1>
+<p>OTN supports serialization of arbitrary C++ structs through template specialization of <code>OTN::ToOTNDataType&lt;T&gt;</code>.</p>
+<h2>Defining a specialization</h2>
+<p>Provide a <code>template&lt;&gt;</code> specialization in a header visible to both your write and read code. The function receives an <code>OTNObjectBuilder&amp;</code> and a reference to your type <code>T</code>.</p>
+<div class="code-block-wrapper"><pre><code>struct Vector2 { float x, y; };
+
+template&lt;&gt;
+inline void OTN::ToOTNDataType&lt;Vector2&gt;(OTN::OTNObjectBuilder&amp; obj, Vector2&amp; v) {
+    obj.SetObjectName(&quot;Vector2&quot;);
+    obj.AddNames(&quot;x&quot;, &quot;y&quot;);
+    obj.AddData(v.x, v.y);
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<p>The builder operates in <strong>two modes</strong> transparently:</p>
+<ul><li><strong>Serialization</strong> (<code>T → OTNObject</code>): <code>AddData</code> captures the values from your struct.</li><li><strong>Deserialization</strong> (<code>OTNObject → T</code>): <code>AddData</code> writes values back into your struct.</li></ul>
+<p>You use the same function body for both directions in the simple case.</p>
+<h2>Using a custom type</h2>
+<p>Once specialized, your type can be used anywhere a value is expected — as a column value, inside a vector, or nested within another object.</p>
+<div class="code-block-wrapper"><pre><code>Vector2 pos{ 10.0f, 20.0f };
+
+OTN::OTNObject obj(&quot;Entities&quot;);
+obj.SetNames(&quot;id&quot;, &quot;position&quot;)
+   .AddDataRow(1, pos);</code></pre><div class="code-language-tag">cpp</div></div>
+<p>Reading back:</p>
+<div class="code-block-wrapper"><pre><code>auto maybePos = obj-&gt;TryGetValue&lt;Vector2&gt;(0, &quot;position&quot;);
+if (maybePos) {
+    float x = maybePos-&gt;x;
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Separating save and load logic</h2>
+<p>Use <code>IsBuildingOTNObject()</code> when the save and load paths need to differ — for example, when packing data into a compact representation on save and unpacking it on load.</p>
+<div class="code-block-wrapper"><pre><code>template&lt;&gt;
+inline void OTN::ToOTNDataType&lt;Vector2&gt;(OTN::OTNObjectBuilder&amp; obj, Vector2&amp; e) {
+    obj.SetObjectName(&quot;Vector2&quot;);
+    obj.AddNames(&quot;coords&quot;);
+
+    if (obj.IsBuildingOTNObject()) {
+        // Serialization: pack x and y into a float list
+        obj.AddData(std::vector&lt;float&gt;{ e.x, e.y });
+    } else {
+        // Deserialization: unpack from the list
+        std::vector&lt;float&gt; tmp;
+        obj.AddData(tmp);
+        if (tmp.size() &gt;= 2) {
+            e.x = tmp[0];
+            e.y = tmp[1];
+        }
+    }
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Rules for custom types</h2>
+<ul><li>Your type <strong>must have a default constructor</strong> (used during deserialization).</li><li>The order in which you call <code>AddData</code> determines the column order in the file. <strong>Changing this order is a breaking change</strong> — existing files will no longer deserialize correctly.</li><li><code>SetObjectName</code> is required. The name is used as the type identifier in the OTN file.</li><li><code>AddNames</code> only matters during serialization. During deserialization, data is consumed positionally by <code>AddData</code> calls.</li></ul>
+<h2>Nested custom types</h2>
+<p>Custom types can contain other custom types. Each nested type will be serialized as a sub-object and written to the file before its parent.</p>
+<div class="code-block-wrapper"><pre><code>struct Transform {
+    Vector2 position;
+    float   rotation;
+};
+
+template&lt;&gt;
+inline void OTN::ToOTNDataType&lt;Transform&gt;(OTN::OTNObjectBuilder&amp; obj, Transform&amp; t) {
+    obj.SetObjectName(&quot;Transform&quot;);
+    obj.AddNames(&quot;position&quot;, &quot;rotation&quot;);
+    obj.AddData(t.position, t.rotation);
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<h2>Using custom types in vectors</h2>
+<div class="code-block-wrapper"><pre><code>std::vector&lt;Vector2&gt; path = { {0,0}, {1,2}, {3,4} };
+
+OTN::OTNObject route(&quot;Route&quot;);
+route.SetNames(&quot;waypoints&quot;)
+     .AddDataRow(path);</code></pre><div class="code-language-tag">cpp</div></div>
+<p>Reading back:</p>
+<div class="code-block-wrapper"><pre><code>auto waypoints = obj-&gt;TryGetValue&lt;std::vector&lt;Vector2&gt;&gt;(0, &quot;waypoints&quot;);</code></pre><div class="code-language-tag">cpp</div></div></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f204tmi1ta570m">
+  <div class="main" data-node-id="node_mpiiqu1f204tmi1ta570m" data-tab-id="tab_mpiiqu1f4phdrb12seze3">
+    <section id="node_mpiiqu1f204tmi1ta570m" class="export-section">
+    
+    <div class="export-section__body"><h1>Streaming</h1>
+<p>For large datasets where loading the full file into memory is not acceptable, OTN provides streaming variants of both the reader and writer. These keep only one object's worth of data in memory at a time.</p>
+<blockquote><strong>Note:</strong> The streaming classes have fewer features than their non-streaming counterparts. Object references are unresolved in <code>OTNStreamReader</code>, and <code>OTNStreamWriter</code> does not apply DefType/DefName optimizations. If your data fits comfortably in memory, prefer <code>OTNReader</code> and <code>OTNWriter</code> for the full feature set.</blockquote>
+<h2>OTNStreamReader</h2>
+<p>Reads objects and rows one at a time without loading the whole file.</p>
+<div class="code-block-wrapper"><pre><code>OTN::OTNStreamReader reader;
+if (!reader.Open(&quot;data.otn&quot;)) {
+    std::cerr &lt;&lt; reader.GetError() &lt;&lt; std::endl;
+    return;
+}
+
+while (reader.NextObject()) {
+    std::cout &lt;&lt; reader.GetCurrentObjectName() &lt;&lt; &quot;\n&quot;;
+
+    OTN::OTNRow row;
+    while (reader.ReadRow(row)) {
+        // process individual row values
+        // row[0].value, row[1].value, etc.
+    }
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<p>Objects must be read <strong>sequentially</strong> — there is no random access. If you call <code>NextObject()</code> before consuming all rows of the current object, the remaining rows are skipped automatically. You can also skip explicitly:</p>
+<div class="code-block-wrapper"><pre><code>while (reader.NextObject()) {
+    if (reader.GetCurrentObjectName() != &quot;Items&quot;) {
+        reader.SkipCurrentObject();
+        continue;
+    }
+    // process Items...
+}</code></pre><div class="code-language-tag">cpp</div></div>
+<p><strong>Available metadata for the current object:</strong></p>
+<div class="code-block-wrapper"><pre><code>reader.GetCurrentObjectName();  // object name
+reader.GetColumnNames();        // column names
+reader.GetColumnTypes();        // type descriptors
+reader.GetRemainingRowCount();  // rows not yet read
+reader.HasMoreRows();           // true while rows remain
+reader.HasMoreObjects();        // true while objects remain</code></pre><div class="code-language-tag">cpp</div></div>
+<p><strong>Limitations of OTNStreamReader:</strong></p>
+<ul><li>Object references (<code>object_ref</code> columns) are returned as unresolved <code>OTNObjectRef</code> values. They are not resolved to actual <code>OTNObject</code> instances.</li><li>No random access to rows or objects.</li><li>Objects must be read in file order.</li></ul>
+<h2>OTNStreamWriter</h2>
+<p>Writes objects and rows one at a time to a file without buffering all data in memory.</p>
+<h3>Streaming workflow (BeginObject / WriteRow / EndObject)</h3>
+<p>Use this when you are generating rows on the fly and the total count is not known upfront.</p>
+<div class="code-block-wrapper"><pre><code>OTN::OTNStreamWriter writer;
+writer.Open(&quot;output.otn&quot;);
+
+writer.BeginObject(&quot;Items&quot;,
+    OTN::col(&quot;id&quot;,    &quot;int&quot;),
+    OTN::col(&quot;name&quot;,  &quot;String&quot;),
+    OTN::col(&quot;value&quot;, &quot;float&quot;));
+
+for (auto&amp; item : myItems) {
+    writer.WriteRow(item.id, item.name, item.value);
+}
+
+writer.EndObject();
+writer.Close();</code></pre><div class="code-language-tag">cpp</div></div>
+<p>The row count is not written into the file header until <code>EndObject()</code> is called. The writer patches the count back in via <code>seekp</code> at that point.</p>
+<h3>High-level AppendObject</h3>
+<p>For complete <code>OTNObject</code> instances (including nested custom types), use <code>AppendObject</code>. It handles sub-object serialization depth-first and deduplicates repeated sub-object instances automatically.</p>
+<div class="code-block-wrapper"><pre><code>writer.AppendObject(myComplexObject);</code></pre><div class="code-language-tag">cpp</div></div>
+<h3>Object references in streaming</h3>
+<p>When you need one object to reference rows of another, use integer indices directly. <code>GetWrittenRowCount()</code> gives you the next available index for a named object.</p>
+<div class="code-block-wrapper"><pre><code>size_t statsIdx = writer.GetWrittenRowCount(&quot;WeaponStats&quot;);
+
+writer.BeginObject(&quot;WeaponStats&quot;,
+    OTN::col(&quot;damage&quot;, &quot;float&quot;),
+    OTN::col(&quot;speed&quot;,  &quot;float&quot;));
+writer.WriteRow(15.5f, 1.2f);
+writer.EndObject();
+
+writer.BeginObject(&quot;Weapon&quot;,
+    OTN::col(&quot;name&quot;,  &quot;String&quot;),
+    OTN::col(&quot;stats&quot;, &quot;WeaponStats&quot;));
+writer.WriteRow(&quot;Sword&quot;, statsIdx); // reference by row index
+writer.EndObject();
+
+writer.Close();</code></pre><div class="code-language-tag">cpp</div></div>
+<p>Files written by <code>OTNStreamWriter</code> are fully compatible with both <code>OTNReader</code> and <code>OTNStreamReader</code>.</p></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f14aozgjz62bva">
+  <div class="main" data-node-id="node_mpiiqu1f14aozgjz62bva" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <section id="node_mpiiqu1f14aozgjz62bva" class="export-section">
+    
+    <div class="export-section__body"><h1>Type System</h1>
+<p>OTN's type system maps C++ types to a small set of base types stored in the file. Everything in the system ultimately resolves to an <code>OTNBaseType</code> enum value.</p>
+<h2>OTNBaseType</h2>
+<div class="code-block-wrapper"><pre><code>enum class OTNBaseType {
+    UNKNOWN = 0,
+    INT,        // int (32-bit signed)
+    UINT64,     // uint64_t
+    INT64,      // int64_t
+    FLOAT,      // float
+    DOUBLE,     // double
+    BOOL,       // bool
+    STRING,     // std::string
+    OBJECT,     // nested OTNObject (resolved pointer)
+    OBJECT_REF, // unresolved integer reference (internal, during parsing)
+    LIST,       // OTNArray — a sequence of OTNValues
+    ANY         // untyped — type is stored inline per value
+};</code></pre><div class="code-language-tag">cpp</div></div>
+<p><code>OBJECT_REF</code> only exists transiently during file parsing. After <code>OTNReader</code> finishes reading, all <code>OBJECT_REF</code> values are resolved to <code>OBJECT</code> values (actual <code>OTNObjectPtr</code> pointers). User code never sees <code>OBJECT_REF</code> unless it uses <code>OTNStreamReader</code>, where references remain unresolved by design.</p>
+<h2>OTNTypeDesc</h2>
+<p><code>OTNTypeDesc</code> describes a column type, including array nesting depth and optional object name.</p>
+<div class="code-block-wrapper"><pre><code>struct OTNTypeDesc {
+    OTNBaseType baseType    = OTNBaseType::UNKNOWN;
+    uint32_t    listDepth   = 0;       // 0 = scalar, 1 = T[], 2 = T[][], ...
+    std::string refObjectName;         // only used when baseType == OBJECT
+};</code></pre><div class="code-language-tag">cpp</div></div>
+<p>Examples:</p>
+<table><thead><tr><th>C++ type</th><th>baseType</th><th>listDepth</th><th>refObjectName</th></tr></thead><tbody><tr><td><code>int</code></td><td><code>INT</code></td><td>0</td><td>—</td></tr><tr><td><code>std::vector&lt;int&gt;</code></td><td><code>INT</code></td><td>1</td><td>—</td></tr><tr><td><code>std::vector&lt;std::vector&lt;float&gt;&gt;</code></td><td><code>FLOAT</code></td><td>2</td><td>—</td></tr><tr><td><code>MyStruct</code></td><td><code>OBJECT</code></td><td>0</td><td><code>&quot;MyStruct&quot;</code></td></tr><tr><td><code>std::vector&lt;MyStruct&gt;</code></td><td><code>OBJECT</code></td><td>1</td><td><code>&quot;MyStruct&quot;</code></td></tr></tbody></table>
+<h2>Type string parsing</h2>
+<p>Type strings like <code>&quot;int&quot;</code>, <code>&quot;float[]&quot;</code>, or <code>&quot;WeaponStats&quot;</code> are parsed by <code>StringToOTNBaseType</code>. If the string does not match any known primitive, it is treated as an object type name and <code>baseType</code> is set to <code>OBJECT</code> with <code>refObjectName</code> set to the string value. Array brackets <code>[]</code> increase <code>listDepth</code> by one per pair.</p>
+<h2>OTNValueVariant</h2>
+<p>All runtime values are stored as a <code>std::variant</code>:</p>
+<div class="code-block-wrapper"><pre><code>using OTNValueVariant = std::variant&lt;
+    int,
+    int64_t,
+    uint64_t,
+    float,
+    double,
+    bool,
+    std::string,
+    OTNObjectPtr,    // shared_ptr&lt;OTNObject&gt;
+    OTNArrayPtr,     // shared_ptr&lt;OTNArray&gt;
+    OTNObjectRef     // integer ref — internal only
+&gt;;</code></pre><div class="code-language-tag">cpp</div></div>
+<p><code>OTNArray</code> is a simple container:</p>
+<div class="code-block-wrapper"><pre><code>class OTNArray {
+public:
+    std::vector&lt;OTNValue&gt; values;
+};</code></pre><div class="code-language-tag">cpp</div></div>
+<p>Nested lists are represented by nesting <code>OTNArray</code> inside <code>OTNArray</code> — an <code>OTNValue</code> of type <code>LIST</code> whose inner values are also <code>LIST</code>-typed.</p>
+<h2>OTNValue</h2>
+<p><code>OTNValue</code> wraps a <code>OTNValueVariant</code> together with a cached <code>OTNBaseType</code> tag for fast type checks without calling <code>std::visit</code>:</p>
+<div class="code-block-wrapper"><pre><code>struct OTNValue {
+    OTNValueVariant value;
+    OTNBaseType     type = OTNBaseType::UNKNOWN;
+};</code></pre><div class="code-language-tag">cpp</div></div>
+<p>The <code>type</code> field is set automatically from the variant on construction via <code>GetTypeFromVariant</code>.</p>
+<h2>Type traits</h2>
+<p>Several <code>constexpr</code> traits drive compile-time dispatch:</p>
+<table><thead><tr><th>Trait</th><th>Purpose</th></tr></thead><tbody><tr><td><code>is_otn_base_type_v&lt;T&gt;</code></td><td>True for all primitive types OTN can store directly (<code>int</code>, <code>float</code>, <code>std::string</code>, <code>const char*</code>, etc.)</td></tr><tr><td><code>is_otn_list_v&lt;T&gt;</code></td><td>True for <code>std::vector&lt;T&gt;</code> and <code>std::array&lt;T,N&gt;</code></td></tr><tr><td><code>otn_is_std_vector&lt;T&gt;</code></td><td>True only for <code>std::vector&lt;T&gt;</code> (used in deserialization)</td></tr><tr><td><code>is_otn_variant_v&lt;T&gt;</code></td><td>True when T is exactly <code>OTNValueVariant</code></td></tr><tr><td><code>OTNTypeOf&lt;T&gt;::value</code></td><td>Maps a C++ type to its <code>OTNBaseType</code> at compile time</td></tr></tbody></table>
+These traits are used throughout <code>OTNDataType</code>, <code>AddSingleValueToRow</code>, and <code>TryDeserializeValue</code> to pick the correct code path without runtime branching.</div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f15giw6ayh714p">
+  <div class="main" data-node-id="node_mpiiqu1f15giw6ayh714p" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <section id="node_mpiiqu1f15giw6ayh714p" class="export-section">
+    
+    <div class="export-section__body"><h1>Type Conversion</h1>
+<p>The conversion pipeline is the bridge between raw C++ values and <code>OTNValue</code> instances stored in <code>OTNObject</code> rows. It runs in both directions: serialization (C++ → <code>OTNValue</code>) and deserialization (<code>OTNValue</code> → C++).</p>
+<h2>Serialization: C++ → OTNValue</h2>
+<p><code>OTNDataType&lt;T&gt;</code> is the entry point for converting a C++ value into an <code>OTNValue</code>. It is instantiated every time a value is added to a row.</p>
+<div class="code-block-wrapper"><pre><code>AddDataRow(v.x, v.y)
+    → AddSingleValueToRow(row, v.x, ...)
+        → OTNDataType&lt;float&gt;(v.x)
+            → m_value = v.x   (is_otn_base_type_v&lt;float&gt; = true)</code></pre></div>
+<p>The <code>OTNDataType::Construct</code> method dispatches on type traits:</p>
+<table><thead><tr><th>Input type</th><th>Dispatch path</th></tr></thead><tbody><tr><td>Primitive (<code>int</code>, <code>float</code>, <code>bool</code>, <code>std::string</code>, …)</td><td>Stored directly in the variant</td></tr><tr><td><code>const char*</code></td><td>Converted to <code>std::string</code>, then stored</td></tr><tr><td><code>uint32_t</code> / <code>unsigned int</code></td><td>Widened to <code>int64_t</code> (no <code>uint32_t</code> slot in the variant)</td></tr><tr><td><code>std::vector&lt;T&gt;</code> / <code>std::array&lt;T,N&gt;</code></td><td>Creates an <code>OTNArray</code>; each element recursively constructed via <code>OTNDataType&lt;elem_type&gt;</code></td></tr><tr><td><code>OTNObject</code></td><td>Wrapped in a <code>shared_ptr&lt;OTNObject&gt;</code> and stored as <code>OBJECT</code></td></tr><tr><td>Any other type <code>T</code></td><td>Calls <code>ToOTNDataType&lt;T&gt;</code> via <code>OTNObjectBuilder</code> (custom type path)</td></tr></tbody></table>
+For custom types, an <code>OTNObjectBuilder</code> is constructed in serialization mode, <code>ToOTNDataType</code> is called, and the resulting <code>OTNObject</code> is boxed into a <code>shared_ptr</code> and stored as <code>OBJECT</code>.
+<h2>Deserialization: OTNValue → C++</h2>
+<p><code>OTNObject::TryDeserializeValue&lt;T&gt;</code> converts an <code>OTNValue</code> back to a C++ type <code>T</code>. It is called by all <code>GetValue</code> / <code>TryGetValue</code> overloads.</p>
+<div class="code-block-wrapper"><pre><code>TryGetValue&lt;Vector2&gt;(row, &quot;position&quot;)
+    → TryDeserializeValue&lt;Vector2&gt;(val)
+        → val.type == OBJECT
+        → ptr-&gt;GetRowCount() == 1
+        → OTNObjectBuilder{ *ptr }  (deserialization mode)
+        → ToOTNDataType&lt;Vector2&gt;(builder, result)
+        → result is filled</code></pre></div>
+<p>Dispatch in <code>TryDeserializeValue</code>:</p>
+<table><thead><tr><th>Target type <code>T</code></th><th>Condition</th><th>Action</th></tr></thead><tbody><tr><td>Base primitive (<code>int</code>, <code>float</code>, <code>bool</code>, <code>std::string</code>, …)</td><td><code>is_otn_base_type_v&lt;T&gt;</code></td><td><code>std::get&lt;T&gt;(val.value)</code> — throws on mismatch, returns nullopt via catch</td></tr><tr><td><code>std::vector&lt;ElemType&gt;</code></td><td><code>otn_is_std_vector&lt;T&gt;</code></td><td>Iterates <code>OTNArray::values</code>, recursively deserializes each element</td></tr><tr><td><code>OTNObject</code></td><td><code>std::is_same_v&lt;T, OTNObject&gt;</code></td><td>Dereferences the <code>OTNObjectPtr</code></td></tr><tr><td>Custom type <code>T</code></td><td>fallback</td><td>Requires <code>val.type == OBJECT</code> <strong>and</strong> <code>GetRowCount() == 1</code>; creates <code>OTNObjectBuilder</code> in deserialization mode and calls <code>ToOTNDataType</code></td></tr></tbody></table>
+<h3>The one-row requirement for custom types</h3>
+<p>A nested <code>OTNObject</code> can only be deserialized into a single custom struct if it has <strong>exactly one row</strong>. If the object has more than one row, <code>TryDeserializeValue</code> returns <code>std::nullopt</code> for a scalar <code>T</code>. In that case, read the column as <code>std::vector&lt;T&gt;</code> instead. See the Reading Data section for a detailed explanation.</p>
+<h2>OTNObjectBuilder deserialization mode</h2>
+<p>When <code>OTNObjectBuilder</code> is constructed with an <code>OTNObject</code> (deserialization mode), <code>AddData(T&amp; ref)</code> reads from the object's first row sequentially by position. Each call to <code>AddData</code> advances an internal cursor <code>m_dataPos</code>. This means the order of <code>AddData</code> calls in <code>ToOTNDataType</code> must exactly match the column order used during serialization.</p>
+<div class="code-block-wrapper"><pre><code>Deserialization call sequence for Vector2:
+  obj.AddNames(&quot;x&quot;, &quot;y&quot;)    → no-op in deserialization mode
+  obj.AddData(e.x)           → reads m_data[0] into e.x, m_dataPos = 1
+  obj.AddData(e.y)           → reads m_data[1] into e.y, m_dataPos = 2</code></pre></div>
+<h2>Type deduction</h2>
+<p>When <code>SetTypes()</code> is not called, column types are deduced automatically from the <strong>first row</strong> inserted via <code>AddDataRow</code>. <code>DeduceTypesFromRow</code> calls <code>OTNWriter::DeduceColumnType</code> on each <code>OTNValue</code> in that row, which inspects the variant index and the object name for <code>OBJECT</code> types. Subsequent rows are validated in debug builds to ensure type consistency.</p></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f1d3kmgdkicb5r">
+  <div class="main" data-node-id="node_mpiiqu1f1d3kmgdkicb5r" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <section id="node_mpiiqu1f1d3kmgdkicb5r" class="export-section">
+    
+    <div class="export-section__body"><h1>OTNObject Internals</h1>
+<p><code>OTNObject</code> is the central data structure. It holds the schema (names + types) and all data rows for one logical table.</p>
+<h2>Internal state</h2>
+<table><thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code>m_name</code></td><td><code>std::string</code></td><td>Object identifier; written as the object name in the file</td></tr><tr><td><code>m_columnNames</code></td><td><code>vector&lt;string&gt;</code></td><td>Column names, one per column</td></tr><tr><td><code>m_columnTypes</code></td><td><code>vector&lt;OTNTypeDesc&gt;</code></td><td>Type descriptor per column; may be empty until deduced</td></tr><tr><td><code>m_dataRows</code></td><td><code>vector&lt;OTNRow&gt;</code></td><td>All data rows; each row is a <code>vector&lt;OTNValue&gt;</code></td></tr><tr><td><code>m_columnIndexCache</code></td><td><code>unordered_map&lt;string, size_t&gt;</code></td><td>Lazy-built name→index cache for fast column lookup</td></tr><tr><td><code>m_deducedColumnTypes</code></td><td><code>bool</code></td><td>True after types have been deduced from the first row</td></tr><tr><td><code>m_valid</code></td><td><code>bool</code></td><td>False if any error occurred during building</td></tr><tr><td><code>m_wasBuildFromT</code></td><td><code>bool</code></td><td>True if the object was created via <code>OTNObjectBuilder</code> (custom type path)</td></tr></tbody></table>
+<h2>Column name validation</h2>
+<p>Names are checked in debug builds by <code>DebugIsNameValid</code>. A name must not start with a digit and must not contain any OTN syntax characters (<code>@</code>, <code>:</code>, <code>=</code>, <code>,</code>, <code>/</code>, <code>{</code>, <code>}</code>, <code>[</code>, <code>]</code>, <code>&lt;</code>, <code>&gt;</code>, <code>;</code>). Duplicate names are also caught by <code>DebugValidateNamesDistinct</code>.</p>
+<h2>Type deduction</h2>
+<p><code>DeduceTypesFromRow</code> is called automatically after the first <code>AddDataRow</code> if <code>SetTypes()</code> was never called. It derives <code>OTNTypeDesc</code> from each <code>OTNValue</code> by inspecting the variant. For <code>OBJECT</code>-typed values it also captures the <code>refObjectName</code> from the embedded <code>OTNObject</code>. Once deduced, <code>m_deducedColumnTypes</code> is set to <code>true</code> and subsequent rows are type-checked in debug builds by <code>DebugValidateDataTypes</code>.</p>
+<h2>Column lookup</h2>
+<p><code>GetColumnID(name)</code> looks up a column index by name. Results are cached in <code>m_columnIndexCache</code> after the first lookup. The cache is invalidated (cleared) when <code>SetNames()</code> is called.</p>
+<h2>Row access</h2>
+<p><code>GetRow(index)</code> is bounds-checked and throws <code>std::out_of_range</code> on invalid indices. <code>GetValue&lt;T&gt;</code> and <code>TryGetValue&lt;T&gt;</code> both delegate to <code>TryDeserializeValue&lt;T&gt;</code> internally; the difference is that <code>GetValue&lt;T&gt;</code> without a default re-throws from <code>std::get</code> on type mismatch, while <code>TryGetValue&lt;T&gt;</code> catches all exceptions and returns <code>std::nullopt</code>.</p>
+<h2>Error state</h2>
+<p>Any error sets <code>m_valid = false</code> and appends a message to <code>m_error</code>. Errors do not throw — the object silently enters an invalid state that can be queried via <code>IsValid()</code>, <code>GetError()</code>, or <code>TryGetError()</code>. Invalid objects should not be passed to <code>OTNWriter</code>.</p></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1fbbo5s3lq069u">
+  <div class="main" data-node-id="node_mpiiqu1fbbo5s3lq069u" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <section id="node_mpiiqu1fbbo5s3lq069u" class="export-section">
+    
+    <div class="export-section__body"><h1>OTNObjectBuilder</h1>
+<p><code>OTNObjectBuilder</code> is the runtime bridge that makes the same <code>ToOTNDataType&lt;T&gt;</code> specialization work for both serialization and deserialization.</p>
+<h2>Two modes</h2>
+<p>The mode is determined by which constructor is used:</p>
+<div class="code-block-wrapper"><pre><code>OTNObjectBuilder builder;           // serialization mode  (T → OTNObject)
+OTNObjectBuilder builder{ obj };    // deserialization mode (OTNObject → T)</code></pre><div class="code-language-tag">cpp</div></div>
+<p><code>IsBuildingOTNObject()</code> returns <code>true</code> in serialization mode.</p>
+<h2>Serialization mode (T → OTNObject)</h2>
+<ul><li><code>SetObjectName(name)</code> — stores the object name.</li><li><code>AddNames(&quot;x&quot;, &quot;y&quot;, ...)</code> — records column names for the output object.</li><li><code>AddData(v.x, v.y, ...)</code> — each value is wrapped in <code>OTNDataType&lt;U&gt;</code> and appended to <code>m_data</code>. For custom types this recurses, calling <code>ToOTNDataType</code> again.</li><li><code>ToOTNObject()</code> — consumes the builder (rvalue-only) and returns an <code>OTNObject</code> built from the collected names and data. Called internally after <code>ToOTNDataType</code> returns.</li></ul>
+<h2>Deserialization mode (OTNObject → T)</h2>
+<p>The constructor <code>OTNObjectBuilder(const OTNObject&amp; obj)</code> copies the first row of <code>obj</code> into <code>m_data</code> and sets <code>m_otnObjectFromT = false</code>.</p>
+<ul><li><code>SetObjectName(name)</code> — checks that the provided name matches the source object name. Reports an error on mismatch (but does not abort).</li><li><code>AddNames(...)</code> — no-op; column positions are used, not names.</li><li><code>AddData(ref)</code> — reads <code>m_data[m_dataPos]</code> and writes the value into <code>ref</code> via <code>DeserializeFromOTNValue</code>. Advances <code>m_dataPos</code>.</li></ul>
+<p><code>DeserializeFromOTNValue&lt;T&gt;</code> handles base types (<code>std::get&lt;T&gt;</code>), lists (iterates <code>OTNArray</code>), <code>OTNObject</code> values (dereferences pointer), and custom types (creates a nested builder and recurses).</p>
+<h2>AddNameData</h2>
+<p><code>AddNameData(name, data)</code> is a convenience that combines one <code>AddNames</code> and one <code>AddData</code> call atomically, with a sync check. It is useful when the name and value for a column are available together.</p>
+<h2>Data sync validation</h2>
+<p>In serialization mode, <code>AddName</code> ensures each name is unique. <code>IsDataOutOfSync()</code> is checked before <code>AddNameData</code> to verify that the number of names and data values match — an out-of-sync state indicates a programming error in the <code>ToOTNDataType</code> specialization.</p></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f16f9gcr1aubcul">
+  <div class="main" data-node-id="node_mpiiqu1f16f9gcr1aubcul" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <section id="node_mpiiqu1f16f9gcr1aubcul" class="export-section">
+    
+    <div class="export-section__body"><h1>Writer Internals</h1>
+<p><code>OTNWriter</code> collects <code>OTNObject</code> instances and serializes them to a <code>.otn</code> text file in a two-phase process: first all objects are converted to an internal <code>SerializedObject</code> representation, then the file is written in a single forward pass.</p>
+<h2>Phase 1 — CreateWriteData</h2>
+<p><code>CreateWriteData</code> iterates all <code>OTNObject</code> instances and calls <code>AddObject</code> for each one. <code>AddObject</code> resolves nested <code>OBJECT</code> references: any column value of type <code>OBJECT</code> is recursively added as its own object, and the reference is replaced with an <code>OBJECT_REF</code> (integer index) pointing into that child object's row list. This depth-first traversal ensures child objects are always written before the parent.</p>
+<p><code>ConvertToSerValue</code> performs the actual OBJECT→OBJECT_REF replacement and also strips list wrappers from OBJECT lists down to a list of integer refs.</p>
+<p>If <code>UseDeduplicateRows(true)</code> is set, <code>SerializedObject::AddOrGetRow</code> checks a row hash map before inserting. Identical rows (same column types and equal values) share a single stored row, and the returned index is reused.</p>
+<h2>Phase 2 — WriteBody / WriteObjects</h2>
+<p><code>WriteObjects</code> emits one OTN object block per <code>SerializedObject</code>. Each block has the form:</p>
+<div class="code-block-wrapper"><pre><code>ObjectName[rowCount] {
+    type/type/type, name, name = val, val, val;
+    type/type/type, name, name = val, val, val;
+}</code></pre></div>
+<p>Column types are written as slash-separated type tokens in the column header line, followed by comma-separated column names. Each row is written as a semicolon-terminated value list.</p>
+<p>If <code>UseDefType</code> or <code>UseDefName</code> is active, frequently used type or name strings are replaced with their pre-assigned numeric ID (<code>@defType</code>/<code>@defName</code> header tables), reducing file size.</p>
+<p><code>BufferedIndentedStream</code> accumulates output in a 64 KB in-memory buffer and flushes to the <code>std::ofstream</code> in chunks, avoiding one system call per value.</p>
+<p>If <code>UseOptimizations</code> is active, all spaces, tabs, and newlines are suppressed.</p>
+<h2>OTNStreamWriter</h2>
+<p><code>OTNStreamWriter</code> writes one row at a time without buffering the full data set.</p>
+<p><strong>BeginObject / WriteRow / EndObject flow:</strong></p>
+<ol><li><code>BeginObject</code> writes the object header line with a placeholder row count field (9-character wide). The stream position of this placeholder is saved in <code>m_countPos</code>.</li><li><code>WriteRow</code> converts each value via <code>OTNDataType&lt;T&gt;</code> and calls <code>WriteRowInternal</code>, which serializes one row to the file immediately.</li><li><code>EndObject</code> seeks back to <code>m_countPos</code> via <code>seekp</code>, overwrites the placeholder with the actual row count, then seeks back to the end to resume writing.</li></ol>
+<p><strong>AppendObject flow:</strong></p>
+<p><code>AppendObject</code> calls <code>EnsureSubObjectsWritten</code> recursively for any nested <code>OBJECT</code> values in the source <code>OTNObject</code>. Sub-objects are written before the parent (depth-first). Pointer-based deduplication (<code>m_objPtrToIndex</code>) ensures that the same <code>OTNObject</code> instance is written only once even if referenced from multiple rows.</p>
+<p><code>WriteObjectHeaderKnown</code> is used by <code>AppendObject</code> since the row count is already known before writing starts, so no <code>seekp</code> is needed.</p></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1f1szegxq1n6ulo2">
+  <div class="main" data-node-id="node_mpiiqu1f1szegxq1n6ulo2" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <section id="node_mpiiqu1f1szegxq1n6ulo2" class="export-section">
+    
+    <div class="export-section__body"><h1>Reader &amp; Parser</h1>
+<p><code>OTNReader</code> parses a <code>.otn</code> file in three stages: file loading, tokenization, and parsing.</p>
+<h2>Stage 1 — File loading</h2>
+<p><code>ReadFile</code> opens the file with <code>std::ifstream</code>, reads the entire content into a <code>std::string</code>, and passes it to <code>ReadData</code>. <code>ReadString</code> skips the file step and feeds the string directly.</p>
+<h2>Stage 2 — Tokenization (OTNTokenizer)</h2>
+<p><code>OTNTokenizer</code> operates on a <code>string_view</code> over the in-memory content. It walks the buffer character by character and emits <code>Token</code> instances into a flat <code>std::vector&lt;Token&gt;</code>.</p>
+<p>Each token carries its type, text content, and the line/column position for error messages. The token types map directly to OTN syntax characters and identifiers:</p>
+<table><thead><tr><th>Token type</th><th>Source character(s)</th></tr></thead><tbody><tr><td><code>IDENTIFIER</code></td><td>Letters, digits, <code>_</code> sequences</td></tr><tr><td><code>NUMBER</code></td><td>Digit sequences (integers and decimals)</td></tr><tr><td><code>STRING</code></td><td>Quoted string literals <code>&quot;...&quot;</code></td></tr><tr><td><code>KEYWORD_PREFIX</code></td><td><code>@</code></td></tr><tr><td><code>COLON</code></td><td><code>:</code></td></tr><tr><td><code>EQUALS</code></td><td><code>=</code></td></tr><tr><td><code>COMMA</code></td><td><code>,</code></td></tr><tr><td><code>SLASH</code></td><td><code>/</code></td></tr><tr><td><code>SEMICOLON</code></td><td><code>;</code></td></tr><tr><td><code>BLOCK_BEGIN</code> / <code>BLOCK_END</code></td><td><code>{</code> / <code>}</code></td></tr><tr><td><code>LIST_BEGIN</code> / <code>LIST_END</code></td><td><code>[</code> / <code>]</code></td></tr><tr><td><code>REF_BEGIN</code> / <code>REF_END</code></td><td><code>&lt;</code> / <code>&gt;</code></td></tr><tr><td><code>MINUS</code></td><td><code>-</code> (kept separate to handle negative numbers)</td></tr><tr><td><code>END_OF_FILE</code></td><td>end of input</td></tr></tbody></table>
+Whitespace and comments (if any) are skipped silently. The tokenizer does not allocate sub-strings; <code>Token::text</code> is either a copy of the matched characters or left empty for single-character tokens.
+<h2>Stage 3 — Parsing (OTNReaderV1)</h2>
+<p><code>OTNReaderV1</code> consumes the token stream produced by the tokenizer.</p>
+<p><strong>Top-level structure:</strong></p>
+<div class="code-block-wrapper"><pre><code>@version: 1;
+@defType: { 0 = int, 1 = float, ... };   ← optional
+@defName: { 0 = x, 1 = y, ... };         ← optional
+@object: {
+    ObjectName[rowCount] {
+        type/type, name, name = val, val;
+        ...
+    }
+    ...
+}</code></pre></div>
+<p><strong>ParseTopLevel</strong> processes directives in order:<br><ol><li><code>@version</code> — reads the format version and stores it in <code>ReaderData</code>.</li><li><code>@defType</code> (optional) — builds a numeric-ID-to-type-string map.</li><li><code>@defName</code> (optional) — builds a numeric-ID-to-name-string map.</li><li><code>@object</code> block — calls <code>ParseObject</code> for each named object inside.</li></ol></p>
+<p><strong>ParseObject</strong> reads the object name, row count from <code>[N]</code>, then calls <code>ParseHeaderBlock</code> (column types and names) and <code>ParseDataRows</code>.</p>
+<p><strong>ParseDataRows</strong> reads exactly <code>rowCount</code> rows. Each row is a semicolon-terminated list of values. Values are converted to <code>OTNValue</code> by <code>TokenToOTNValue</code>, which dispatches based on the column's <code>OTNTypeDesc</code>.</p>
+<h2>Reference resolution</h2>
+<p>After all objects are parsed, <code>ResolveOTNObjectRefs</code> walks every object and replaces <code>OBJECT_REF</code> values (integer indices) with <code>OTNObjectPtr</code> values pointing to the actual <code>OTNObject</code> at that index. This is what makes reading back nested object references transparent to the user — by the time <code>ReadFile</code> returns, all references are fully resolved and you get real <code>OTNObject</code> instances from <code>GetValue&lt;OTNObject&gt;</code> or <code>TryGetValue&lt;OTNObject&gt;</code>.</p>
+<p>If a referenced object name or index does not exist, an error is added and the reader enters an invalid state.</p>
+<h2>OTNStreamReader parsing</h2>
+<p><code>OTNStreamReader</code> uses a separate incremental tokenizer (<code>StreamTokenizer</code>) that operates on a single-character lookahead from a <code>string_view</code> over the entire file content (which is read in full on <code>Open</code>). Rather than building a token vector upfront, it produces tokens on demand during <code>NextObject</code> and <code>ReadRow</code> calls.</p>
+<p><code>NextObject</code> advances past any remaining rows of the previous object, then calls <code>ParseObjectHeader</code> to read the name, row count, and column schema. <code>ReadRow</code> calls <code>ReadValue</code> for each column in turn. Object references remain as <code>OTNObjectRef</code> values — they are never resolved, so <code>OBJECT_REF</code> columns must be interpreted by the caller using their integer indices.</p></div>
+  </section>
+  </div>
+</template>
+<template id="tmpl-node_mpiiqu1fhmy0fv1tpp17t">
+  <div class="main" data-node-id="node_mpiiqu1fhmy0fv1tpp17t" data-tab-id="tab_mpiiqu1f1fvnf6l1seyyuv">
+    <section id="node_mpiiqu1fhmy0fv1tpp17t" class="export-section">
+    
+    <div class="export-section__body"><h1>File Format</h1>
+<p>A <code>.otn</code> file is plain UTF-8 text. It consists of a small header section followed by one or more object blocks.</p>
+<h2>Overall structure</h2>
+<div class="code-block-wrapper"><pre><code>@version: 1;
+
+@defType: {
+    0 = int,
+    1 = float,
+    2 = String
+};
+
+@defName: {
+    0 = id,
+    1 = name,
+    2 = value
+};
+
+@object: {
+
+    Items[3] {
+        int/String/float,   id,name,value   = 1, &quot;Sword&quot;,  42.5;
+        int/String/float,   id,name,value   = 2, &quot;Shield&quot;, 17.3;
+        int/String/float,   id,name,value   = 3, &quot;Bow&quot;,    8.1;
+    }
+
+    Player[1] {
+        int/String/int[],   id,name,tags    = 1, &quot;Hero&quot;, [10, 20, 30];
+    }
+
+}</code></pre></div>
+<h2>Header directives</h2>
+<p>All directives begin with <code>@</code> and are terminated with <code>;</code>.</p>
+<table><thead><tr><th>Directive</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><code>@version: N;</code></td><td>yes</td><td>Format version number. Currently always <code>1</code>.</td></tr><tr><td><code>@defType: { id = typeName, ... };</code></td><td>no</td><td>Maps numeric IDs to type name strings. Emitted by <code>OTNWriter</code> when <code>UseDefType(true)</code> is set.</td></tr><tr><td><code>@defName: { id = colName, ... };</code></td><td>no</td><td>Maps numeric IDs to column name strings. Emitted when <code>UseDefName(true)</code> is set.</td></tr><tr><td><code>@object: { ... };</code></td><td>yes</td><td>Contains all object blocks.</td></tr></tbody></table>
+<h2>Object block syntax</h2>
+<p>Each object inside <code>@object: { }</code> follows this structure:</p>
+<div class="code-block-wrapper"><pre><code>ObjectName[rowCount] {
+    type/type/type,   name, name, name   = value, value, value;
+    ...
+}</code></pre></div>
+<ul><li><code>ObjectName</code> — the identifier used to retrieve the object via <code>TryGetObject</code>.</li><li><code>[rowCount]</code> — the number of data rows that follow.</li><li>The <strong>column header line</strong> lists types (slash-separated) and names (comma-separated), separated by an <code>=</code>.</li><li>Each <strong>data row</strong> is a comma-separated list of values terminated by <code>;</code>.</li></ul>
+<h2>Type tokens</h2>
+<table><thead><tr><th>Type string</th><th>Maps to</th></tr></thead><tbody><tr><td><code>int</code></td><td><code>INT</code> (32-bit signed)</td></tr><tr><td><code>int64</code></td><td><code>INT64</code></td></tr><tr><td><code>uint64</code></td><td><code>UINT64</code></td></tr><tr><td><code>float</code></td><td><code>FLOAT</code></td></tr><tr><td><code>double</code></td><td><code>DOUBLE</code></td></tr><tr><td><code>bool</code></td><td><code>BOOL</code> (<code>true</code> / <code>false</code>)</td></tr><tr><td><code>String</code></td><td><code>STRING</code> (quoted with <code>&quot;</code>)</td></tr><tr><td><code>ObjectName</code></td><td><code>OBJECT</code> (reference to another object, written as integer index)</td></tr><tr><td><code>any</code></td><td><code>ANY</code> (type stored inline per value)</td></tr><tr><td><code>T[]</code></td><td><code>LIST</code> of <code>T</code> (one bracket pair per nesting level)</td></tr></tbody></table>
+<h2>Value syntax</h2>
+<table><thead><tr><th>Type</th><th>Example in file</th></tr></thead><tbody><tr><td>Integer</td><td><code>42</code></td></tr><tr><td>Negative integer</td><td><code>-7</code></td></tr><tr><td>Float/double</td><td><code>3.14</code> or <code>-0.5</code></td></tr><tr><td>Bool</td><td><code>true</code> or <code>false</code></td></tr><tr><td>String</td><td><code>&quot;hello world&quot;</code></td></tr><tr><td>List</td><td><code>[1, 2, 3]</code></td></tr><tr><td>Nested list</td><td><code>[[1, 2], [3, 4]]</code></td></tr><tr><td>Object reference</td><td><code>&lt;ObjectName, 0&gt;</code> (name + row index, internal form) or just an integer when written via <code>OTNStreamWriter</code></td></tr></tbody></table>
+<h2>DefType / DefName substitution</h2>
+<p>When <code>@defType</code> or <code>@defName</code> is present, any numeric ID found in a type position or name position is looked up in the corresponding map and replaced with the actual string before parsing continues. This means the on-disk representation may look like:</p>
+<div class="code-block-wrapper"><pre><code>@defType: { 0 = int, 1 = String, 2 = float };
+
+Items[2] {
+    0/1/2,  id, name, value = 1, &quot;Sword&quot;, 42.5;
+    0/1/2,  id, name, value = 2, &quot;Shield&quot;, 17.3;
+}</code></pre></div>
+<h2>Optimized (minified) output</h2>
+<p>With <code>UseOptimizations(true)</code>, all whitespace and newlines are removed:</p>
+<div class="code-block-wrapper"><pre><code>@version:1;@object:{Items[2]{int/String/float,id,name,value=1,&quot;Sword&quot;,42.5;2,&quot;Shield&quot;,17.3;}}</code></pre></div>
+<p>Readers handle both forms identically since the tokenizer is whitespace-insensitive.</p>
+<h2>File extension</h2>
+<p>The standard extension is <code>.otn</code>. It is appended automatically by <code>OTNWriter</code>, <code>OTNReader</code>, <code>OTNStreamWriter</code>, and <code>OTNStreamReader</code> if the path does not already end in <code>.otn</code>.</p></div>
+  </section>
+  </div>
+</template>
+  </div>
+      </div>
+    </div>
+  </div> 
+  <script>(function () {
+  // -- Data ----------------------------------------------------------------
+  var allNodes = [{"id":"node_mpiiqu1f10av0rf14boas6","tabId":"tab_mpiiqu1f4phdrb12seze3"},{"id":"node_mpiiqu1fvg7mbd10uuoc8","tabId":"tab_mpiiqu1f4phdrb12seze3"},{"id":"node_mpiiqu1f18333i9djq0by","tabId":"tab_mpiiqu1f4phdrb12seze3"},{"id":"node_mpiiqu1f915e7puv35vc","tabId":"tab_mpiiqu1f4phdrb12seze3"},{"id":"node_mpiiqu1f204tmi1ta570m","tabId":"tab_mpiiqu1f4phdrb12seze3"},{"id":"node_mpiiqu1f14aozgjz62bva","tabId":"tab_mpiiqu1f1fvnf6l1seyyuv"},{"id":"node_mpiiqu1f15giw6ayh714p","tabId":"tab_mpiiqu1f1fvnf6l1seyyuv"},{"id":"node_mpiiqu1f1d3kmgdkicb5r","tabId":"tab_mpiiqu1f1fvnf6l1seyyuv"},{"id":"node_mpiiqu1fbbo5s3lq069u","tabId":"tab_mpiiqu1f1fvnf6l1seyyuv"},{"id":"node_mpiiqu1f16f9gcr1aubcul","tabId":"tab_mpiiqu1f1fvnf6l1seyyuv"},{"id":"node_mpiiqu1f1szegxq1n6ulo2","tabId":"tab_mpiiqu1f1fvnf6l1seyyuv"},{"id":"node_mpiiqu1fhmy0fv1tpp17t","tabId":"tab_mpiiqu1f1fvnf6l1seyyuv"}];
+  var firstNode = {"id":"node_mpiiqu1f10av0rf14boas6","tabId":"tab_mpiiqu1f4phdrb12seze3"};
+  var currentTabId = null;
+  var currentNodeId = null;
+  var isTransitioning = false;
+  var dynamicContent = document.getElementById('dynamicContent');
+
+  // -- Helper: find node's tab --------------------------------------------
+  function getNodeTabId(nodeId) {
+    var node = allNodes.find(function(n) { return n.id === nodeId; });
+    return node ? node.tabId : null;
+  }
+
+  // -- Header scroll-hide behaviour --------------------------------------
+  var docHeader = document.getElementById('docHeader');
+  if (docHeader && docHeader.classList.contains('header-scroll-hide')) {
+    var lastScrollY = 0;
+    var scrollTarget = document.querySelector('.dynamic-content') || window;
+    var onScroll = function() {
+      var y = (scrollTarget === window) ? window.scrollY : scrollTarget.scrollTop;
+      if (y > lastScrollY && y > 60) {
+        docHeader.classList.add('hidden-scrolled');
+      } else {
+        docHeader.classList.remove('hidden-scrolled');
+      }
+      lastScrollY = y;
+    };
+    scrollTarget.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  // -- TOC builder --------------------------------------------------------
+  var tocLinks = document.getElementById('tocLinks');
+  function buildToc() {
+    if (!tocLinks) return;
+    var headings = dynamicContent.querySelectorAll('h1,h2,h3,h4');
+    tocLinks.innerHTML = '';
+    headings.forEach(function(h) {
+      if (!h.id) h.id = 'h-' + Math.random().toString(36).slice(2, 7);
+      var a = document.createElement('a');
+      a.className = 'toc-link';
+      a.href = '#' + h.id;
+      a.textContent = h.textContent;
+      a.dataset.level = h.tagName[1];
+      a.addEventListener('click', function(e) {
+        e.preventDefault();
+        h.scrollIntoView({ behavior: 'smooth' });
+      });
+      tocLinks.appendChild(a);
+    });
+  }
+
+  // -- Load node content from template with crossfade ---------------------
+  function loadNode(nodeId, updateUrl) {
+    if (isTransitioning) return;
+    if (nodeId === currentNodeId) return;
+
+    var template = document.getElementById('tmpl-' + nodeId);
+    if (!template) {
+      console.warn('Template not found for node', nodeId);
+      return;
+    }
+
+    var newTabId = getNodeTabId(nodeId);
+    if (!newTabId) return;
+
+    // Tab muss aktiv sein (sonst wechsle zuerst den Tab)
+    var activeTabSection = document.querySelector('.sidebar-section.active');
+    if (activeTabSection && activeTabSection.dataset.tab !== newTabId) {
+      // Tab wechseln, dann diesen Node laden
+      switchTab(newTabId, function() {
+        loadNode(nodeId, updateUrl);
+      });
+      return;
+    }
+
+    isTransitioning = true;
+
+    // Crossfade: ausblenden
+    dynamicContent.classList.add('fade-out');
+
+    setTimeout(function () {
+      // Inhalt austauschen
+      var clone = document.importNode(template.content, true);
+      dynamicContent.innerHTML = '';
+      dynamicContent.appendChild(clone);
+      buildToc();
+
+      // Aktive Klasse in Sidebar aktualisieren
+      document.querySelectorAll('.nav-row').forEach(function(row) {
+        row.classList.remove('active');
+      });
+      document.querySelectorAll('.nav-row[data-node-id="' + nodeId + '"]').forEach(function(row) {
+        row.classList.add('active');
+      });
+
+      currentNodeId = nodeId;
+      currentTabId = newTabId;
+
+      // URL-Hash aktualisieren (ohne History-Eintrag wenn nicht gewünscht)
+      if (updateUrl !== false && window.location.hash !== '#' + nodeId) {
+        history.pushState(null, '', '#' + nodeId);
+      }
+
+      // Einblenden
+      dynamicContent.classList.remove('fade-out');
+      setTimeout(function () {
+        isTransitioning = false;
+      }, 50);
+    }, 150);
+  }
+
+  // -- Tab switching (erweitert: lädt ersten Node des neuen Tabs) -----------
+  function switchTab(tabId, callback) {
+    // Panels existieren nicht mehr, wir steuern nur Sidebar und Buttons
+    document.querySelectorAll('.sidebar-section').forEach(function (s) {
+      s.classList.toggle('active', s.dataset.tab === tabId);
+    });
+    document.querySelectorAll('.tab-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === tabId);
+    });
+
+    // Ersten Node dieses Tabs finden
+    var firstNodeInTab = allNodes.find(function(n) { return n.tabId === tabId; });
+    if (firstNodeInTab) {
+      loadNode(firstNodeInTab.id, true);
+    } else {
+      dynamicContent.innerHTML = '<div class="main"><p>No content in this tab.</p></div>';
+      currentNodeId = null;
+      currentTabId = tabId;
+      if (callback) callback();
+    }
+    if (callback) callback();
+    try { sessionStorage.setItem('_docActiveTab', tabId); } catch (e) {}
+  }
+
+  // -- Nav group toggle (unverändert) --------------------------------------
+  function toggleNavGroup(groupId) {
+    var group = document.getElementById(groupId);
+    if (!group) return;
+    group.classList.toggle('collapsed');
+  }
+
+  // -- Event handling -----------------------------------------------------
+  // Sidebar-Klicks (Delegation)
+  document.body.addEventListener('click', function(e) {
+    var link = e.target.closest('.nav-row[data-node-id]');
+    if (link && link.getAttribute('data-node-id')) {
+      e.preventDefault();
+      var nodeId = link.getAttribute('data-node-id');
+      loadNode(nodeId, true);
+    }
+  });
+
+  // Chevron-Klicks (statt inline onclick)
+  document.body.addEventListener('click', function(e) {
+    var btn = e.target.closest('.nav-chevron-btn');
+    if (btn && btn.dataset.toggleGroup) {
+      e.preventDefault();
+      toggleNavGroup(btn.dataset.toggleGroup);
+      return;
+    }
+
+    var link = e.target.closest('.nav-row[data-node-id]');
+    if (link && link.getAttribute('data-node-id')) {
+      e.preventDefault();
+      loadNode(link.getAttribute('data-node-id'), true);
+    }
+  });
+
+  // Tab-Klicks
+  var tabNav = document.getElementById('tabNav');
+  if (tabNav) {
+    tabNav.addEventListener('click', function (e) {
+      var btn = e.target.closest('.tab-btn');
+      if (btn && btn.dataset.tab) {
+        switchTab(btn.dataset.tab);
+      }
+    });
+  }
+
+  // Hash-Änderungen (z. B. Browser Zurück/Vorwärts)
+  window.addEventListener('hashchange', function() {
+    var hash = window.location.hash.slice(1);
+    if (hash && allNodes.some(function(n) { return n.id === hash; })) {
+      loadNode(hash, false);
+    } else if (firstNode) {
+      loadNode(firstNode.id, true);
+    }
+  });
+
+  // -- Initialisierung (wie gehabt) ---------------------------------------
+  var savedTab = null;
+  try { savedTab = sessionStorage.getItem('_docActiveTab'); } catch (e) {}
+  var initialTab = (savedTab && allNodes.some(function(n) { return n.tabId === savedTab; })) ? savedTab : (firstNode ? firstNode.tabId : null);
+  
+  var hashNodeId = window.location.hash.slice(1);
+  var initialNodeId = null;
+  if (hashNodeId && allNodes.some(function(n) { return n.id === hashNodeId; })) {
+    initialNodeId = hashNodeId;
+  } else if (firstNode) {
+    initialNodeId = firstNode.id;
+  }
+
+  if (initialTab) {
+    document.querySelectorAll('.sidebar-section').forEach(function (s) {
+      s.classList.toggle('active', s.dataset.tab === initialTab);
+    });
+    document.querySelectorAll('.tab-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === initialTab);
+    });
+  }
+
+  if (initialNodeId) {
+    loadNode(initialNodeId, false);
+  }
+})();</script>
+  </body>
+  </html>

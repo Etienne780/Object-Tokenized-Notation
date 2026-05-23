@@ -1,0 +1,312 @@
+{
+  "project": {
+    "name": "OTNFile",
+    "settings": {},
+    "tabs": [
+      {
+        "name": "Guide",
+        "nodes": [
+          {
+            "name": "Getting Started",
+            "content": "# Getting Started\n\nOTN (Object Tokenized Notation) is a text-based serialization format that stores structured data in a tabular style — similar to a spreadsheet or database table. Data is organized in **named objects**, each with typed columns and any number of data rows.\n\n## What you need\n\nOnly two files are required:\n\n- `OTNFile.h` — the full API header\n- `OTNFile.cpp` — the implementation\n\nAdd both to your project and include the header:\n\n```cpp\n#include \"OTNFile.h\"\n```\n\n## How it works\n\nEverything is built around `OTNObject`, which is like a table: it has a name, column names, column types, and rows of data. You build one or more objects in memory, write them to a `.otn` file with `OTNWriter`, and read them back with `OTNReader`.\n\n## Requirements\n\n- C++17 or later\n- Tested on Windows\n\n---\n\n> **Tip:** The `.otn` extension is added automatically if you omit it from any file path.\n",
+            "children": [
+              {
+                "name": "Writing Data",
+                "content": "# Writing Data\n\nUse `OTNObject` to build your data in memory, then `OTNWriter` to save it to a file.\n\n## Basic example\n\n```cpp\nOTN::OTNObject obj(\"Items\");\nobj.SetNames(\"id\", \"name\", \"value\")\n   .AddDataRow(1, \"Sword\",  42.5f)\n   .AddDataRow(2, \"Shield\", 17.3f)\n   .AddDataRow(3, \"Bow\",     8.1f);\n\nOTN::OTNWriter writer;\nwriter.AppendObject(obj)\n      .Save(\"data.otn\");\n```\n\n## Setting column types explicitly\n\nTypes are deduced automatically from the first row you add. If you want to be explicit, call `SetTypes()` before `AddDataRow()`:\n\n```cpp\nobj.SetNames(\"id\", \"name\", \"value\")\n   .SetTypes(\"int\", \"String\", \"float\")\n   .AddDataRow(1, \"Sword\", 42.5f);\n```\n\nSupported type strings: `int`, `int64`, `uint64`, `float`, `double`, `bool`, `String`, `any`, and any custom object name (e.g. `\"WeaponStats\"`). Append `[]` for arrays (e.g. `\"int[]\"`).\n\nUse `\"-\"`, `\"\"`, or `\"_\"` as a placeholder to skip defining a type for that column — it will be deduced from the first inserted row.\n\n## Multiple objects in one file\n\n```cpp\nOTN::OTNWriter writer;\nwriter.AppendObject(itemsObj)\n      .AppendObject(enemiesObj)\n      .AppendObject(configObj)\n      .Save(\"gamedata.otn\");\n```\n\n## Serializing to a string\n\n```cpp\nstd::string text;\nif (writer.SaveToString(text)) {\n    // text now contains the full OTN content\n}\n```\n\n## Writer options\n\nAll options are set before calling `Save()` and support method chaining.\n\n| Option | Method | Default | Description |\n|---|---|---|---|\n| DefName | `UseDefName(true)` | off | Replaces frequently used column names with numeric IDs to reduce file size |\n| DefType | `UseDefType(true)` | off | Replaces frequently used type names with numeric IDs |\n| Optimizations | `UseOptimizations(true)` | off | Removes all spaces and line breaks from the output |\n| Deduplication | `UseDeduplicateRows(true)` | off | Skips writing identical rows that already exist in the object |\n\n```cpp\nOTN::OTNWriter writer;\nwriter.UseDefName(true)\n      .UseDefType(true)\n      .UseOptimizations(true)\n      .AppendObject(obj)\n      .Save(\"data.otn\");\n```\n\n## Error handling\n\n```cpp\nOTN::OTNWriter writer;\nwriter.AppendObject(obj);\nif (!writer.Save(\"data.otn\")) {\n    std::cerr << writer.GetError() << std::endl;\n}\n```\n\n`OTNObject` itself can also reach an error state. Always check before passing it to the writer:\n\n```cpp\nif (!obj.IsValid()) {\n    std::cerr << obj.GetError() << std::endl;\n}\n```\n",
+                "children": []
+              },
+              {
+                "name": "Reading Data",
+                "content": "# Reading Data\n\nUse `OTNReader` to load a `.otn` file into memory. All objects are fully parsed and accessible via name lookup.\n\n## Opening a file\n\n```cpp\nOTN::OTNReader reader;\nif (!reader.ReadFile(\"data.otn\")) {\n    std::cerr << reader.GetError() << std::endl;\n    return;\n}\n```\n\nYou can also parse from a string:\n\n```cpp\nstd::string otnText = /* ... */;\nif (!reader.ReadString(otnText)) { /* ... */ }\n```\n\n## Retrieving an object\n\n```cpp\nauto obj = reader.TryGetObject(\"Items\");\nif (!obj) {\n    // object not found\n}\n```\n\n`TryGetObject` returns `std::optional<OTNObject>`, so it is safe even if the name doesn't exist in the file.\n\n## Reading values\n\nThere are three ways to read a value from a row, depending on how much safety you need.\n\n**Throwing access (use when the data must exist):**\n\n```cpp\nint         id   = obj->GetValue<int>(0, \"id\");\nstd::string name = obj->GetValue<std::string>(0, \"name\");\nfloat       val  = obj->GetValue<float>(0, \"value\");\n```\n\n**With a fallback default (safe, no exception):**\n\n```cpp\nint   id  = obj->GetValue<int>(0, \"id\", -1);\nfloat val = obj->GetValue<float>(0, \"value\", 0.0f);\n```\n\n**As `std::optional` (fully safe):**\n\n```cpp\nstd::optional<int>         id   = obj->TryGetValue<int>(0, \"id\");\nstd::optional<std::string> name = obj->TryGetValue<std::string>(0, \"name\");\n```\n\nAll three variants accept either a column name (`\"id\"`) or a column index (`0`).\n\n## Iterating all rows\n\n```cpp\nfor (size_t row = 0; row < obj->GetRowCount(); ++row) {\n    int id     = obj->GetValue<int>(row, \"id\", -1);\n    auto name  = obj->TryGetValue<std::string>(row, \"name\");\n}\n```\n\n## Reading all objects at once\n\n```cpp\nconst auto& allObjects = reader.GetObjects();\nfor (const auto& [name, object] : allObjects) {\n    // process each object\n}\n```\n\n## Reading lists / arrays\n\nIf a column was saved with a vector value (e.g. `std::vector<int>`), read it back the same way:\n\n```cpp\nauto tags = obj->TryGetValue<std::vector<int>>(0, \"tags\");\nif (tags) {\n    for (int t : *tags) { /* ... */ }\n}\n```\n\n## Objects with multiple rows become lists\n\nWhen an `OTNObject` is stored as a nested value inside another object and that inner object has **more than one row**, it is stored in the file as a list of integer row indices. When reading back, such a column must be read as `std::vector<OTNObject>` or `std::vector<YourCustomType>`, not as a single value.\n\n```cpp\n// Writing — \"inventory\" column contains multiple Item rows\nOTN::OTNObject items(\"Item\");\nitems.SetNames(\"name\", \"qty\")\n     .AddDataRow(\"Sword\", 1)\n     .AddDataRow(\"Potion\", 5);\n\nOTN::OTNObject player(\"Player\");\nplayer.SetNames(\"name\", \"inventory\")\n      .AddDataRow(\"Hero\", items); // items has 2 rows → becomes a list\n\n// Reading\nauto items = obj->TryGetValue<std::vector<OTNObject>>(0, \"inventory\");\n```\n\nA nested object with exactly one row is read back as a single value. The moment it has two or more rows it becomes a list in the file, and you must read it as a list.\n",
+                "children": []
+              },
+              {
+                "name": "Custom Types",
+                "content": "# Custom Types\n\nOTN supports serialization of arbitrary C++ structs through template specialization of `OTN::ToOTNDataType<T>`.\n\n## Defining a specialization\n\nProvide a `template<>` specialization in a header visible to both your write and read code. The function receives an `OTNObjectBuilder&` and a reference to your type `T`.\n\n```cpp\nstruct Vector2 { float x, y; };\n\ntemplate<>\ninline void OTN::ToOTNDataType<Vector2>(OTN::OTNObjectBuilder& obj, Vector2& v) {\n    obj.SetObjectName(\"Vector2\");\n    obj.AddNames(\"x\", \"y\");\n    obj.AddData(v.x, v.y);\n}\n```\n\nThe builder operates in **two modes** transparently:\n\n- **Serialization** (`T → OTNObject`): `AddData` captures the values from your struct.\n- **Deserialization** (`OTNObject → T`): `AddData` writes values back into your struct.\n\nYou use the same function body for both directions in the simple case.\n\n## Using a custom type\n\nOnce specialized, your type can be used anywhere a value is expected — as a column value, inside a vector, or nested within another object.\n\n```cpp\nVector2 pos{ 10.0f, 20.0f };\n\nOTN::OTNObject obj(\"Entities\");\nobj.SetNames(\"id\", \"position\")\n   .AddDataRow(1, pos);\n```\n\nReading back:\n\n```cpp\nauto maybePos = obj->TryGetValue<Vector2>(0, \"position\");\nif (maybePos) {\n    float x = maybePos->x;\n}\n```\n\n## Separating save and load logic\n\nUse `IsBuildingOTNObject()` when the save and load paths need to differ — for example, when packing data into a compact representation on save and unpacking it on load.\n\n```cpp\ntemplate<>\ninline void OTN::ToOTNDataType<Vector2>(OTN::OTNObjectBuilder& obj, Vector2& e) {\n    obj.SetObjectName(\"Vector2\");\n    obj.AddNames(\"coords\");\n\n    if (obj.IsBuildingOTNObject()) {\n        // Serialization: pack x and y into a float list\n        obj.AddData(std::vector<float>{ e.x, e.y });\n    } else {\n        // Deserialization: unpack from the list\n        std::vector<float> tmp;\n        obj.AddData(tmp);\n        if (tmp.size() >= 2) {\n            e.x = tmp[0];\n            e.y = tmp[1];\n        }\n    }\n}\n```\n\n## Rules for custom types\n\n- Your type **must have a default constructor** (used during deserialization).\n- The order in which you call `AddData` determines the column order in the file. **Changing this order is a breaking change** — existing files will no longer deserialize correctly.\n- `SetObjectName` is required. The name is used as the type identifier in the OTN file.\n- `AddNames` only matters during serialization. During deserialization, data is consumed positionally by `AddData` calls.\n\n## Nested custom types\n\nCustom types can contain other custom types. Each nested type will be serialized as a sub-object and written to the file before its parent.\n\n```cpp\nstruct Transform {\n    Vector2 position;\n    float   rotation;\n};\n\ntemplate<>\ninline void OTN::ToOTNDataType<Transform>(OTN::OTNObjectBuilder& obj, Transform& t) {\n    obj.SetObjectName(\"Transform\");\n    obj.AddNames(\"position\", \"rotation\");\n    obj.AddData(t.position, t.rotation);\n}\n```\n\n## Using custom types in vectors\n\n```cpp\nstd::vector<Vector2> path = { {0,0}, {1,2}, {3,4} };\n\nOTN::OTNObject route(\"Route\");\nroute.SetNames(\"waypoints\")\n     .AddDataRow(path);\n```\n\nReading back:\n\n```cpp\nauto waypoints = obj->TryGetValue<std::vector<Vector2>>(0, \"waypoints\");\n```\n",
+                "children": []
+              },
+              {
+                "name": "Streaming",
+                "content": "# Streaming\n\nFor large datasets where loading the full file into memory is not acceptable, OTN provides streaming variants of both the reader and writer. These keep only one object's worth of data in memory at a time.\n\n> **Note:** The streaming classes have fewer features than their non-streaming counterparts. Object references are unresolved in `OTNStreamReader`, and `OTNStreamWriter` does not apply DefType/DefName optimizations. If your data fits comfortably in memory, prefer `OTNReader` and `OTNWriter` for the full feature set.\n\n## OTNStreamReader\n\nReads objects and rows one at a time without loading the whole file.\n\n```cpp\nOTN::OTNStreamReader reader;\nif (!reader.Open(\"data.otn\")) {\n    std::cerr << reader.GetError() << std::endl;\n    return;\n}\n\nwhile (reader.NextObject()) {\n    std::cout << reader.GetCurrentObjectName() << \"\\n\";\n\n    OTN::OTNRow row;\n    while (reader.ReadRow(row)) {\n        // process individual row values\n        // row[0].value, row[1].value, etc.\n    }\n}\n```\n\nObjects must be read **sequentially** — there is no random access. If you call `NextObject()` before consuming all rows of the current object, the remaining rows are skipped automatically. You can also skip explicitly:\n\n```cpp\nwhile (reader.NextObject()) {\n    if (reader.GetCurrentObjectName() != \"Items\") {\n        reader.SkipCurrentObject();\n        continue;\n    }\n    // process Items...\n}\n```\n\n**Available metadata for the current object:**\n\n```cpp\nreader.GetCurrentObjectName();  // object name\nreader.GetColumnNames();        // column names\nreader.GetColumnTypes();        // type descriptors\nreader.GetRemainingRowCount();  // rows not yet read\nreader.HasMoreRows();           // true while rows remain\nreader.HasMoreObjects();        // true while objects remain\n```\n\n**Limitations of OTNStreamReader:**\n\n- Object references (`object_ref` columns) are returned as unresolved `OTNObjectRef` values. They are not resolved to actual `OTNObject` instances.\n- No random access to rows or objects.\n- Objects must be read in file order.\n\n## OTNStreamWriter\n\nWrites objects and rows one at a time to a file without buffering all data in memory.\n\n### Streaming workflow (BeginObject / WriteRow / EndObject)\n\nUse this when you are generating rows on the fly and the total count is not known upfront.\n\n```cpp\nOTN::OTNStreamWriter writer;\nwriter.Open(\"output.otn\");\n\nwriter.BeginObject(\"Items\",\n    OTN::col(\"id\",    \"int\"),\n    OTN::col(\"name\",  \"String\"),\n    OTN::col(\"value\", \"float\"));\n\nfor (auto& item : myItems) {\n    writer.WriteRow(item.id, item.name, item.value);\n}\n\nwriter.EndObject();\nwriter.Close();\n```\n\nThe row count is not written into the file header until `EndObject()` is called. The writer patches the count back in via `seekp` at that point.\n\n### High-level AppendObject\n\nFor complete `OTNObject` instances (including nested custom types), use `AppendObject`. It handles sub-object serialization depth-first and deduplicates repeated sub-object instances automatically.\n\n```cpp\nwriter.AppendObject(myComplexObject);\n```\n\n### Object references in streaming\n\nWhen you need one object to reference rows of another, use integer indices directly. `GetWrittenRowCount()` gives you the next available index for a named object.\n\n```cpp\nsize_t statsIdx = writer.GetWrittenRowCount(\"WeaponStats\");\n\nwriter.BeginObject(\"WeaponStats\",\n    OTN::col(\"damage\", \"float\"),\n    OTN::col(\"speed\",  \"float\"));\nwriter.WriteRow(15.5f, 1.2f);\nwriter.EndObject();\n\nwriter.BeginObject(\"Weapon\",\n    OTN::col(\"name\",  \"String\"),\n    OTN::col(\"stats\", \"WeaponStats\"));\nwriter.WriteRow(\"Sword\", statsIdx); // reference by row index\nwriter.EndObject();\n\nwriter.Close();\n```\n\nFiles written by `OTNStreamWriter` are fully compatible with both `OTNReader` and `OTNStreamReader`.\n",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Internals",
+        "nodes": [
+          {
+            "name": "Type System",
+            "content": "# Type System\n\nOTN's type system maps C++ types to a small set of base types stored in the file. Everything in the system ultimately resolves to an `OTNBaseType` enum value.\n\n## OTNBaseType\n\n```cpp\nenum class OTNBaseType {\n    UNKNOWN = 0,\n    INT,        // int (32-bit signed)\n    UINT64,     // uint64_t\n    INT64,      // int64_t\n    FLOAT,      // float\n    DOUBLE,     // double\n    BOOL,       // bool\n    STRING,     // std::string\n    OBJECT,     // nested OTNObject (resolved pointer)\n    OBJECT_REF, // unresolved integer reference (internal, during parsing)\n    LIST,       // OTNArray — a sequence of OTNValues\n    ANY         // untyped — type is stored inline per value\n};\n```\n\n`OBJECT_REF` only exists transiently during file parsing. After `OTNReader` finishes reading, all `OBJECT_REF` values are resolved to `OBJECT` values (actual `OTNObjectPtr` pointers). User code never sees `OBJECT_REF` unless it uses `OTNStreamReader`, where references remain unresolved by design.\n\n## OTNTypeDesc\n\n`OTNTypeDesc` describes a column type, including array nesting depth and optional object name.\n\n```cpp\nstruct OTNTypeDesc {\n    OTNBaseType baseType    = OTNBaseType::UNKNOWN;\n    uint32_t    listDepth   = 0;       // 0 = scalar, 1 = T[], 2 = T[][], ...\n    std::string refObjectName;         // only used when baseType == OBJECT\n};\n```\n\nExamples:\n\n| C++ type | baseType | listDepth | refObjectName |\n|---|---|---|---|\n| `int` | `INT` | 0 | — |\n| `std::vector<int>` | `INT` | 1 | — |\n| `std::vector<std::vector<float>>` | `FLOAT` | 2 | — |\n| `MyStruct` | `OBJECT` | 0 | `\"MyStruct\"` |\n| `std::vector<MyStruct>` | `OBJECT` | 1 | `\"MyStruct\"` |\n\n## Type string parsing\n\nType strings like `\"int\"`, `\"float[]\"`, or `\"WeaponStats\"` are parsed by `StringToOTNBaseType`. If the string does not match any known primitive, it is treated as an object type name and `baseType` is set to `OBJECT` with `refObjectName` set to the string value. Array brackets `[]` increase `listDepth` by one per pair.\n\n## OTNValueVariant\n\nAll runtime values are stored as a `std::variant`:\n\n```cpp\nusing OTNValueVariant = std::variant<\n    int,\n    int64_t,\n    uint64_t,\n    float,\n    double,\n    bool,\n    std::string,\n    OTNObjectPtr,    // shared_ptr<OTNObject>\n    OTNArrayPtr,     // shared_ptr<OTNArray>\n    OTNObjectRef     // integer ref — internal only\n>;\n```\n\n`OTNArray` is a simple container:\n\n```cpp\nclass OTNArray {\npublic:\n    std::vector<OTNValue> values;\n};\n```\n\nNested lists are represented by nesting `OTNArray` inside `OTNArray` — an `OTNValue` of type `LIST` whose inner values are also `LIST`-typed.\n\n## OTNValue\n\n`OTNValue` wraps a `OTNValueVariant` together with a cached `OTNBaseType` tag for fast type checks without calling `std::visit`:\n\n```cpp\nstruct OTNValue {\n    OTNValueVariant value;\n    OTNBaseType     type = OTNBaseType::UNKNOWN;\n};\n```\n\nThe `type` field is set automatically from the variant on construction via `GetTypeFromVariant`.\n\n## Type traits\n\nSeveral `constexpr` traits drive compile-time dispatch:\n\n| Trait | Purpose |\n|---|---|\n| `is_otn_base_type_v<T>` | True for all primitive types OTN can store directly (`int`, `float`, `std::string`, `const char*`, etc.) |\n| `is_otn_list_v<T>` | True for `std::vector<T>` and `std::array<T,N>` |\n| `otn_is_std_vector<T>` | True only for `std::vector<T>` (used in deserialization) |\n| `is_otn_variant_v<T>` | True when T is exactly `OTNValueVariant` |\n| `OTNTypeOf<T>::value` | Maps a C++ type to its `OTNBaseType` at compile time |\n\nThese traits are used throughout `OTNDataType`, `AddSingleValueToRow`, and `TryDeserializeValue` to pick the correct code path without runtime branching.\n",
+            "children": []
+          },
+          {
+            "name": "Type Conversion",
+            "content": "# Type Conversion\n\nThe conversion pipeline is the bridge between raw C++ values and `OTNValue` instances stored in `OTNObject` rows. It runs in both directions: serialization (C++ → `OTNValue`) and deserialization (`OTNValue` → C++).\n\n## Serialization: C++ → OTNValue\n\n`OTNDataType<T>` is the entry point for converting a C++ value into an `OTNValue`. It is instantiated every time a value is added to a row.\n\n```\nAddDataRow(v.x, v.y)\n    → AddSingleValueToRow(row, v.x, ...)\n        → OTNDataType<float>(v.x)\n            → m_value = v.x   (is_otn_base_type_v<float> = true)\n```\n\nThe `OTNDataType::Construct` method dispatches on type traits:\n\n| Input type | Dispatch path |\n|---|---|\n| Primitive (`int`, `float`, `bool`, `std::string`, …) | Stored directly in the variant |\n| `const char*` | Converted to `std::string`, then stored |\n| `uint32_t` / `unsigned int` | Widened to `int64_t` (no `uint32_t` slot in the variant) |\n| `std::vector<T>` / `std::array<T,N>` | Creates an `OTNArray`; each element recursively constructed via `OTNDataType<elem_type>` |\n| `OTNObject` | Wrapped in a `shared_ptr<OTNObject>` and stored as `OBJECT` |\n| Any other type `T` | Calls `ToOTNDataType<T>` via `OTNObjectBuilder` (custom type path) |\n\nFor custom types, an `OTNObjectBuilder` is constructed in serialization mode, `ToOTNDataType` is called, and the resulting `OTNObject` is boxed into a `shared_ptr` and stored as `OBJECT`.\n\n## Deserialization: OTNValue → C++\n\n`OTNObject::TryDeserializeValue<T>` converts an `OTNValue` back to a C++ type `T`. It is called by all `GetValue` / `TryGetValue` overloads.\n\n```\nTryGetValue<Vector2>(row, \"position\")\n    → TryDeserializeValue<Vector2>(val)\n        → val.type == OBJECT\n        → ptr->GetRowCount() == 1\n        → OTNObjectBuilder{ *ptr }  (deserialization mode)\n        → ToOTNDataType<Vector2>(builder, result)\n        → result is filled\n```\n\nDispatch in `TryDeserializeValue`:\n\n| Target type `T` | Condition | Action |\n|---|---|---|\n| Base primitive (`int`, `float`, `bool`, `std::string`, …) | `is_otn_base_type_v<T>` | `std::get<T>(val.value)` — throws on mismatch, returns nullopt via catch |\n| `std::vector<ElemType>` | `otn_is_std_vector<T>` | Iterates `OTNArray::values`, recursively deserializes each element |\n| `OTNObject` | `std::is_same_v<T, OTNObject>` | Dereferences the `OTNObjectPtr` |\n| Custom type `T` | fallback | Requires `val.type == OBJECT` **and** `GetRowCount() == 1`; creates `OTNObjectBuilder` in deserialization mode and calls `ToOTNDataType` |\n\n### The one-row requirement for custom types\n\nA nested `OTNObject` can only be deserialized into a single custom struct if it has **exactly one row**. If the object has more than one row, `TryDeserializeValue` returns `std::nullopt` for a scalar `T`. In that case, read the column as `std::vector<T>` instead. See the Reading Data section for a detailed explanation.\n\n## OTNObjectBuilder deserialization mode\n\nWhen `OTNObjectBuilder` is constructed with an `OTNObject` (deserialization mode), `AddData(T& ref)` reads from the object's first row sequentially by position. Each call to `AddData` advances an internal cursor `m_dataPos`. This means the order of `AddData` calls in `ToOTNDataType` must exactly match the column order used during serialization.\n\n```\nDeserialization call sequence for Vector2:\n  obj.AddNames(\"x\", \"y\")    → no-op in deserialization mode\n  obj.AddData(e.x)           → reads m_data[0] into e.x, m_dataPos = 1\n  obj.AddData(e.y)           → reads m_data[1] into e.y, m_dataPos = 2\n```\n\n## Type deduction\n\nWhen `SetTypes()` is not called, column types are deduced automatically from the **first row** inserted via `AddDataRow`. `DeduceTypesFromRow` calls `OTNWriter::DeduceColumnType` on each `OTNValue` in that row, which inspects the variant index and the object name for `OBJECT` types. Subsequent rows are validated in debug builds to ensure type consistency.\n",
+            "children": []
+          },
+          {
+            "name": "OTNObject",
+            "content": "# OTNObject Internals\n\n`OTNObject` is the central data structure. It holds the schema (names + types) and all data rows for one logical table.\n\n## Internal state\n\n| Member | Type | Description |\n|---|---|---|\n| `m_name` | `std::string` | Object identifier; written as the object name in the file |\n| `m_columnNames` | `vector<string>` | Column names, one per column |\n| `m_columnTypes` | `vector<OTNTypeDesc>` | Type descriptor per column; may be empty until deduced |\n| `m_dataRows` | `vector<OTNRow>` | All data rows; each row is a `vector<OTNValue>` |\n| `m_columnIndexCache` | `unordered_map<string, size_t>` | Lazy-built name→index cache for fast column lookup |\n| `m_deducedColumnTypes` | `bool` | True after types have been deduced from the first row |\n| `m_valid` | `bool` | False if any error occurred during building |\n| `m_wasBuildFromT` | `bool` | True if the object was created via `OTNObjectBuilder` (custom type path) |\n\n## Column name validation\n\nNames are checked in debug builds by `DebugIsNameValid`. A name must not start with a digit and must not contain any OTN syntax characters (`@`, `:`, `=`, `,`, `/`, `{`, `}`, `[`, `]`, `<`, `>`, `;`). Duplicate names are also caught by `DebugValidateNamesDistinct`.\n\n## Type deduction\n\n`DeduceTypesFromRow` is called automatically after the first `AddDataRow` if `SetTypes()` was never called. It derives `OTNTypeDesc` from each `OTNValue` by inspecting the variant. For `OBJECT`-typed values it also captures the `refObjectName` from the embedded `OTNObject`. Once deduced, `m_deducedColumnTypes` is set to `true` and subsequent rows are type-checked in debug builds by `DebugValidateDataTypes`.\n\n## Column lookup\n\n`GetColumnID(name)` looks up a column index by name. Results are cached in `m_columnIndexCache` after the first lookup. The cache is invalidated (cleared) when `SetNames()` is called.\n\n## Row access\n\n`GetRow(index)` is bounds-checked and throws `std::out_of_range` on invalid indices. `GetValue<T>` and `TryGetValue<T>` both delegate to `TryDeserializeValue<T>` internally; the difference is that `GetValue<T>` without a default re-throws from `std::get` on type mismatch, while `TryGetValue<T>` catches all exceptions and returns `std::nullopt`.\n\n## Error state\n\nAny error sets `m_valid = false` and appends a message to `m_error`. Errors do not throw — the object silently enters an invalid state that can be queried via `IsValid()`, `GetError()`, or `TryGetError()`. Invalid objects should not be passed to `OTNWriter`.\n",
+            "children": []
+          },
+          {
+            "name": "OTNObjectBuilder",
+            "content": "# OTNObjectBuilder\n\n`OTNObjectBuilder` is the runtime bridge that makes the same `ToOTNDataType<T>` specialization work for both serialization and deserialization.\n\n## Two modes\n\nThe mode is determined by which constructor is used:\n\n```cpp\nOTNObjectBuilder builder;           // serialization mode  (T → OTNObject)\nOTNObjectBuilder builder{ obj };    // deserialization mode (OTNObject → T)\n```\n\n`IsBuildingOTNObject()` returns `true` in serialization mode.\n\n## Serialization mode (T → OTNObject)\n\n- `SetObjectName(name)` — stores the object name.\n- `AddNames(\"x\", \"y\", ...)` — records column names for the output object.\n- `AddData(v.x, v.y, ...)` — each value is wrapped in `OTNDataType<U>` and appended to `m_data`. For custom types this recurses, calling `ToOTNDataType` again.\n- `ToOTNObject()` — consumes the builder (rvalue-only) and returns an `OTNObject` built from the collected names and data. Called internally after `ToOTNDataType` returns.\n\n## Deserialization mode (OTNObject → T)\n\nThe constructor `OTNObjectBuilder(const OTNObject& obj)` copies the first row of `obj` into `m_data` and sets `m_otnObjectFromT = false`.\n\n- `SetObjectName(name)` — checks that the provided name matches the source object name. Reports an error on mismatch (but does not abort).\n- `AddNames(...)` — no-op; column positions are used, not names.\n- `AddData(ref)` — reads `m_data[m_dataPos]` and writes the value into `ref` via `DeserializeFromOTNValue`. Advances `m_dataPos`.\n\n`DeserializeFromOTNValue<T>` handles base types (`std::get<T>`), lists (iterates `OTNArray`), `OTNObject` values (dereferences pointer), and custom types (creates a nested builder and recurses).\n\n## AddNameData\n\n`AddNameData(name, data)` is a convenience that combines one `AddNames` and one `AddData` call atomically, with a sync check. It is useful when the name and value for a column are available together.\n\n## Data sync validation\n\nIn serialization mode, `AddName` ensures each name is unique. `IsDataOutOfSync()` is checked before `AddNameData` to verify that the number of names and data values match — an out-of-sync state indicates a programming error in the `ToOTNDataType` specialization.\n",
+            "children": []
+          },
+          {
+            "name": "Writer Internals",
+            "content": "# Writer Internals\n\n`OTNWriter` collects `OTNObject` instances and serializes them to a `.otn` text file in a two-phase process: first all objects are converted to an internal `SerializedObject` representation, then the file is written in a single forward pass.\n\n## Phase 1 — CreateWriteData\n\n`CreateWriteData` iterates all `OTNObject` instances and calls `AddObject` for each one. `AddObject` resolves nested `OBJECT` references: any column value of type `OBJECT` is recursively added as its own object, and the reference is replaced with an `OBJECT_REF` (integer index) pointing into that child object's row list. This depth-first traversal ensures child objects are always written before the parent.\n\n`ConvertToSerValue` performs the actual OBJECT→OBJECT_REF replacement and also strips list wrappers from OBJECT lists down to a list of integer refs.\n\nIf `UseDeduplicateRows(true)` is set, `SerializedObject::AddOrGetRow` checks a row hash map before inserting. Identical rows (same column types and equal values) share a single stored row, and the returned index is reused.\n\n## Phase 2 — WriteBody / WriteObjects\n\n`WriteObjects` emits one OTN object block per `SerializedObject`. Each block has the form:\n\n```\nObjectName[rowCount] {\n    type/type/type, name, name = val, val, val;\n    type/type/type, name, name = val, val, val;\n}\n```\n\nColumn types are written as slash-separated type tokens in the column header line, followed by comma-separated column names. Each row is written as a semicolon-terminated value list.\n\nIf `UseDefType` or `UseDefName` is active, frequently used type or name strings are replaced with their pre-assigned numeric ID (`@defType`/`@defName` header tables), reducing file size.\n\n`BufferedIndentedStream` accumulates output in a 64 KB in-memory buffer and flushes to the `std::ofstream` in chunks, avoiding one system call per value.\n\nIf `UseOptimizations` is active, all spaces, tabs, and newlines are suppressed.\n\n## OTNStreamWriter\n\n`OTNStreamWriter` writes one row at a time without buffering the full data set.\n\n**BeginObject / WriteRow / EndObject flow:**\n\n1. `BeginObject` writes the object header line with a placeholder row count field (9-character wide). The stream position of this placeholder is saved in `m_countPos`.\n2. `WriteRow` converts each value via `OTNDataType<T>` and calls `WriteRowInternal`, which serializes one row to the file immediately.\n3. `EndObject` seeks back to `m_countPos` via `seekp`, overwrites the placeholder with the actual row count, then seeks back to the end to resume writing.\n\n**AppendObject flow:**\n\n`AppendObject` calls `EnsureSubObjectsWritten` recursively for any nested `OBJECT` values in the source `OTNObject`. Sub-objects are written before the parent (depth-first). Pointer-based deduplication (`m_objPtrToIndex`) ensures that the same `OTNObject` instance is written only once even if referenced from multiple rows.\n\n`WriteObjectHeaderKnown` is used by `AppendObject` since the row count is already known before writing starts, so no `seekp` is needed.\n",
+            "children": []
+          },
+          {
+            "name": "Reader & Parser",
+            "content": "# Reader & Parser\n\n`OTNReader` parses a `.otn` file in three stages: file loading, tokenization, and parsing.\n\n## Stage 1 — File loading\n\n`ReadFile` opens the file with `std::ifstream`, reads the entire content into a `std::string`, and passes it to `ReadData`. `ReadString` skips the file step and feeds the string directly.\n\n## Stage 2 — Tokenization (OTNTokenizer)\n\n`OTNTokenizer` operates on a `string_view` over the in-memory content. It walks the buffer character by character and emits `Token` instances into a flat `std::vector<Token>`.\n\nEach token carries its type, text content, and the line/column position for error messages. The token types map directly to OTN syntax characters and identifiers:\n\n| Token type | Source character(s) |\n|---|---|\n| `IDENTIFIER` | Letters, digits, `_` sequences |\n| `NUMBER` | Digit sequences (integers and decimals) |\n| `STRING` | Quoted string literals `\"...\"` |\n| `KEYWORD_PREFIX` | `@` |\n| `COLON` | `:` |\n| `EQUALS` | `=` |\n| `COMMA` | `,` |\n| `SLASH` | `/` |\n| `SEMICOLON` | `;` |\n| `BLOCK_BEGIN` / `BLOCK_END` | `{` / `}` |\n| `LIST_BEGIN` / `LIST_END` | `[` / `]` |\n| `REF_BEGIN` / `REF_END` | `<` / `>` |\n| `MINUS` | `-` (kept separate to handle negative numbers) |\n| `END_OF_FILE` | end of input |\n\nWhitespace and comments (if any) are skipped silently. The tokenizer does not allocate sub-strings; `Token::text` is either a copy of the matched characters or left empty for single-character tokens.\n\n## Stage 3 — Parsing (OTNReaderV1)\n\n`OTNReaderV1` consumes the token stream produced by the tokenizer.\n\n**Top-level structure:**\n\n```\n@version: 1;\n@defType: { 0 = int, 1 = float, ... };   ← optional\n@defName: { 0 = x, 1 = y, ... };         ← optional\n@object: {\n    ObjectName[rowCount] {\n        type/type, name, name = val, val;\n        ...\n    }\n    ...\n}\n```\n\n**ParseTopLevel** processes directives in order:\n1. `@version` — reads the format version and stores it in `ReaderData`.\n2. `@defType` (optional) — builds a numeric-ID-to-type-string map.\n3. `@defName` (optional) — builds a numeric-ID-to-name-string map.\n4. `@object` block — calls `ParseObject` for each named object inside.\n\n**ParseObject** reads the object name, row count from `[N]`, then calls `ParseHeaderBlock` (column types and names) and `ParseDataRows`.\n\n**ParseDataRows** reads exactly `rowCount` rows. Each row is a semicolon-terminated list of values. Values are converted to `OTNValue` by `TokenToOTNValue`, which dispatches based on the column's `OTNTypeDesc`.\n\n## Reference resolution\n\nAfter all objects are parsed, `ResolveOTNObjectRefs` walks every object and replaces `OBJECT_REF` values (integer indices) with `OTNObjectPtr` values pointing to the actual `OTNObject` at that index. This is what makes reading back nested object references transparent to the user — by the time `ReadFile` returns, all references are fully resolved and you get real `OTNObject` instances from `GetValue<OTNObject>` or `TryGetValue<OTNObject>`.\n\nIf a referenced object name or index does not exist, an error is added and the reader enters an invalid state.\n\n## OTNStreamReader parsing\n\n`OTNStreamReader` uses a separate incremental tokenizer (`StreamTokenizer`) that operates on a single-character lookahead from a `string_view` over the entire file content (which is read in full on `Open`). Rather than building a token vector upfront, it produces tokens on demand during `NextObject` and `ReadRow` calls.\n\n`NextObject` advances past any remaining rows of the previous object, then calls `ParseObjectHeader` to read the name, row count, and column schema. `ReadRow` calls `ReadValue` for each column in turn. Object references remain as `OTNObjectRef` values — they are never resolved, so `OBJECT_REF` columns must be interpreted by the caller using their integer indices.\n",
+            "children": []
+          },
+          {
+            "name": "File Format",
+            "content": "# File Format\n\nA `.otn` file is plain UTF-8 text. It consists of a small header section followed by one or more object blocks.\n\n## Overall structure\n\n```\n@version: 1;\n\n@defType: {\n    0 = int,\n    1 = float,\n    2 = String\n};\n\n@defName: {\n    0 = id,\n    1 = name,\n    2 = value\n};\n\n@object: {\n\n    Items[3] {\n        int/String/float,   id,name,value   = 1, \"Sword\",  42.5;\n        int/String/float,   id,name,value   = 2, \"Shield\", 17.3;\n        int/String/float,   id,name,value   = 3, \"Bow\",    8.1;\n    }\n\n    Player[1] {\n        int/String/int[],   id,name,tags    = 1, \"Hero\", [10, 20, 30];\n    }\n\n}\n```\n\n## Header directives\n\nAll directives begin with `@` and are terminated with `;`.\n\n| Directive | Required | Description |\n|---|---|---|\n| `@version: N;` | yes | Format version number. Currently always `1`. |\n| `@defType: { id = typeName, ... };` | no | Maps numeric IDs to type name strings. Emitted by `OTNWriter` when `UseDefType(true)` is set. |\n| `@defName: { id = colName, ... };` | no | Maps numeric IDs to column name strings. Emitted when `UseDefName(true)` is set. |\n| `@object: { ... };` | yes | Contains all object blocks. |\n\n## Object block syntax\n\nEach object inside `@object: { }` follows this structure:\n\n```\nObjectName[rowCount] {\n    type/type/type,   name, name, name   = value, value, value;\n    ...\n}\n```\n\n- `ObjectName` — the identifier used to retrieve the object via `TryGetObject`.\n- `[rowCount]` — the number of data rows that follow.\n- The **column header line** lists types (slash-separated) and names (comma-separated), separated by an `=`.\n- Each **data row** is a comma-separated list of values terminated by `;`.\n\n## Type tokens\n\n| Type string | Maps to |\n|---|---|\n| `int` | `INT` (32-bit signed) |\n| `int64` | `INT64` |\n| `uint64` | `UINT64` |\n| `float` | `FLOAT` |\n| `double` | `DOUBLE` |\n| `bool` | `BOOL` (`true` / `false`) |\n| `String` | `STRING` (quoted with `\"`) |\n| `ObjectName` | `OBJECT` (reference to another object, written as integer index) |\n| `any` | `ANY` (type stored inline per value) |\n| `T[]` | `LIST` of `T` (one bracket pair per nesting level) |\n\n## Value syntax\n\n| Type | Example in file |\n|---|---|\n| Integer | `42` |\n| Negative integer | `-7` |\n| Float/double | `3.14` or `-0.5` |\n| Bool | `true` or `false` |\n| String | `\"hello world\"` |\n| List | `[1, 2, 3]` |\n| Nested list | `[[1, 2], [3, 4]]` |\n| Object reference | `<ObjectName, 0>` (name + row index, internal form) or just an integer when written via `OTNStreamWriter` |\n\n## DefType / DefName substitution\n\nWhen `@defType` or `@defName` is present, any numeric ID found in a type position or name position is looked up in the corresponding map and replaced with the actual string before parsing continues. This means the on-disk representation may look like:\n\n```\n@defType: { 0 = int, 1 = String, 2 = float };\n\nItems[2] {\n    0/1/2,  id, name, value = 1, \"Sword\", 42.5;\n    0/1/2,  id, name, value = 2, \"Shield\", 17.3;\n}\n```\n\n## Optimized (minified) output\n\nWith `UseOptimizations(true)`, all whitespace and newlines are removed:\n\n```\n@version:1;@object:{Items[2]{int/String/float,id,name,value=1,\"Sword\",42.5;2,\"Shield\",17.3;}}\n```\n\nReaders handle both forms identically since the tokenizer is whitespace-insensitive.\n\n## File extension\n\nThe standard extension is `.otn`. It is appended automatically by `OTNWriter`, `OTNReader`, `OTNStreamWriter`, and `OTNStreamReader` if the path does not already end in `.otn`.\n",
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "theme": {
+    "name": "OTNFile",
+    "settings": {
+      "entries": [
+        {
+          "name": "background",
+          "value": "#0d0f14",
+          "active": true
+        },
+        {
+          "name": "background-surface",
+          "value": "#13161e",
+          "active": true
+        },
+        {
+          "name": "background-elevated",
+          "value": "#1a1e28",
+          "active": true
+        },
+        {
+          "name": "text-primary",
+          "value": "#dde0e8",
+          "active": true
+        },
+        {
+          "name": "text-secondary",
+          "value": "#8890a8",
+          "active": true
+        },
+        {
+          "name": "text-muted",
+          "value": "#6b7494",
+          "active": true
+        },
+        {
+          "name": "accent",
+          "value": "#5b8af5",
+          "active": true
+        },
+        {
+          "name": "accent-hover",
+          "value": "#4a76e0",
+          "active": true
+        },
+        {
+          "name": "link",
+          "value": "#7ba8ff",
+          "active": true
+        },
+        {
+          "name": "link-underline",
+          "value": "#5070c0",
+          "active": true
+        },
+        {
+          "name": "border",
+          "value": "#1e2438",
+          "active": true
+        },
+        {
+          "name": "code-background",
+          "value": "#080a10",
+          "active": true
+        },
+        {
+          "name": "code-border",
+          "value": "#1a1e2c",
+          "active": true
+        },
+        {
+          "name": "code-text",
+          "value": "#8890a8",
+          "active": true
+        },
+        {
+          "name": "code-tag-text",
+          "value": "#7ac4a0",
+          "active": true
+        },
+        {
+          "name": "heading",
+          "value": "#eef0f8",
+          "active": true
+        },
+        {
+          "name": "gap-paragraph",
+          "value": 16,
+          "active": true
+        },
+        {
+          "name": "gap-heading",
+          "value": 24,
+          "active": true
+        },
+        {
+          "name": "code-block-gap",
+          "value": 32,
+          "active": true
+        },
+        {
+          "name": "list-item-gap",
+          "value": 4,
+          "active": true
+        },
+        {
+          "name": "table-cell-padding",
+          "value": 7,
+          "active": true
+        },
+        {
+          "name": "blockquote-border-width",
+          "value": 3,
+          "active": true
+        },
+        {
+          "name": "blockquote-radius",
+          "value": 5,
+          "active": true
+        },
+        {
+          "name": "padding-content",
+          "value": 24,
+          "active": true
+        },
+        {
+          "name": "scrollbar-size",
+          "value": 6,
+          "active": true
+        },
+        {
+          "name": "code-radius",
+          "value": 4,
+          "active": true
+        },
+        {
+          "name": "font-size",
+          "value": 15,
+          "active": true
+        },
+        {
+          "name": "font-size-code",
+          "value": 14,
+          "active": true
+        },
+        {
+          "name": "heading-h1",
+          "value": 32,
+          "active": true
+        },
+        {
+          "name": "heading-h2",
+          "value": 24,
+          "active": true
+        },
+        {
+          "name": "heading-h3",
+          "value": 18,
+          "active": true
+        },
+        {
+          "name": "heading-h4",
+          "value": 14,
+          "active": true
+        },
+        {
+          "name": "line-height",
+          "value": 1.75,
+          "active": true
+        },
+        {
+          "name": "code-line-height",
+          "value": 1.65,
+          "active": true
+        },
+        {
+          "name": "header-show",
+          "value": "top",
+          "active": true
+        },
+        {
+          "name": "header-style",
+          "value": "solid",
+          "active": true
+        },
+        {
+          "name": "header-height",
+          "value": 60,
+          "active": true
+        },
+        {
+          "name": "toc-show",
+          "value": "always",
+          "active": true
+        },
+        {
+          "name": "toc-position",
+          "value": "right",
+          "active": true
+        },
+        {
+          "name": "content-max-width",
+          "value": 1300,
+          "active": true
+        },
+        {
+          "name": "content-show-nav",
+          "value": "always",
+          "active": true
+        },
+        {
+          "name": "sidebar-width",
+          "value": 225,
+          "active": true
+        },
+        {
+          "name": "toc-width",
+          "value": 200,
+          "active": true
+        },
+        {
+          "name": "typography-heading",
+          "value": "system",
+          "active": true
+        },
+        {
+          "name": "typography-body",
+          "value": "system",
+          "active": true
+        }
+      ],
+      "mapping": []
+    }
+  }
+}
