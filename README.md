@@ -168,3 +168,9 @@ The `OTNStreamReader` exists for larger files to keep memory usage low, but come
 ## File Format
 
 OTN is a plain-text format. Version 1 is the current format version, stored in the file header.
+
+--
+
+## Contributing
+
+Contributions are welcome! Please open an issue or pull request for any improvements or bug fixes.
