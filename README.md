@@ -48,7 +48,7 @@ OTN::OTNReader reader;
 if (reader.ReadFile("data.otn")) {
     auto obj = reader.TryGetObject("Items");
     if (obj) {
-        int         id   = obj->GetValue<int>(0, "id");
+        int id = obj->GetValue<int>(0, "id");
         std::string name = obj->GetValue<std::string>(0, "name");
 
         // With fallback default
