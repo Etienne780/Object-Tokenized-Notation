@@ -1,0 +1,97 @@
+{
+  "id": "project_mu55p95w18mce1r1uz8j85",
+  "name": "OTNFile",
+  "settings": {
+    "isThemePreset": false,
+    "currentThemeId": "docTheme_mu55p95vhewshp93r4z3"
+  },
+  "tabs": [
+    {
+      "id": "tab_mu55p95xy2tfxuvim3p9",
+      "name": "Guide",
+      "folderName": "Guide",
+      "nodes": [
+        {
+          "id": "node_mu55p95x7rsejz9hraxp",
+          "name": "Getting Started",
+          "fileName": "Getting Started",
+          "children": [
+            {
+              "id": "node_mu55p95xweb2mx16dzzse",
+              "name": "Writing Data",
+              "fileName": "Writing Data",
+              "children": []
+            },
+            {
+              "id": "node_mu55p95x1j1aoqjvokje3",
+              "name": "Reading Data",
+              "fileName": "Reading Data",
+              "children": []
+            },
+            {
+              "id": "node_mu55p95xk2i6alcuiyw",
+              "name": "Custom Types",
+              "fileName": "Custom Types",
+              "children": []
+            },
+            {
+              "id": "node_mu55p95x1u9dp3uu56hz2",
+              "name": "Streaming",
+              "fileName": "Streaming",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tab_mu55p95x1a6rhrm1czr561",
+      "name": "Internals",
+      "folderName": "Internals",
+      "nodes": [
+        {
+          "id": "node_mu55p95x16kjtnh1dqih2o",
+          "name": "Type System",
+          "fileName": "Type System",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95xcc3t1kyr59wt",
+          "name": "Type Conversion",
+          "fileName": "Type Conversion",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x60r14y7tsvw1",
+          "name": "OTNObject",
+          "fileName": "OTNObject",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x1mr9l481ystmfe",
+          "name": "OTNObjectBuilder",
+          "fileName": "OTNObjectBuilder",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x18c549nhu7cu9",
+          "name": "Writer Internals",
+          "fileName": "Writer Internals",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x1r773m4107y4xr",
+          "name": "Reader & Parser",
+          "fileName": "Reader & Parser",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x1mur4st1tuzfby",
+          "name": "File Format",
+          "fileName": "File Format",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
