@@ -124,23 +124,57 @@ inline void Test_WR_Optimized(const std::filesystem::path& dir) {
 inline void Test_WR_DefNameDefType(const std::filesystem::path& dir) {
     auto path = MakeTestFile(dir, "defname_deftype");
 
-    OTN::OTNObject obj("DefObj");
-    obj.SetNames("id", "name", "value");
-    for (int i = 0; i < 10; ++i)
-        obj.AddDataRow(i, std::string("item"), float(i));
+    OTN::OTNObject objPlayers("Players");
+    objPlayers.SetNames("id", "level", "value");
+    for (int i = 0; i < 2; ++i)
+        objPlayers.AddDataRow(i, 30, float(i));
+
+    OTN::OTNObject objEnemies("Enemies");
+    objEnemies.SetNames("id", "count", "value");
+    for (int i = 0; i < 2; ++i)
+        objEnemies.AddDataRow(i, 20, float(i));
+
+    OTN::OTNObject objMaps("Maps");
+    objMaps.SetNames("id", "count", "value");
+    for (int i = 0; i < 2; ++i)
+        objMaps.AddDataRow(i, 20, float(i));
+
+    OTN::OTNObject objLevels("Levels");
+    objLevels.SetNames("id", "count", "value");
+    for (int i = 0; i < 2; ++i)
+        objLevels.AddDataRow(i, 20, float(i));
 
     OTN::OTNWriter writer;
     writer.UseDefName(true).UseDefType(true);
     CHECK(writer.GetUseDefName());
     CHECK(writer.GetUseDefType());
-    CHECK(writer.AppendObject(obj).Save(path));
+    CHECK(writer
+        .AppendObject(objPlayers)
+        .AppendObject(objEnemies)
+        .AppendObject(objMaps)
+        .AppendObject(objLevels)
+        .Save(path));
 
     OTN::OTNReader reader;
     CHECK(reader.ReadFile(path));
-    auto loaded = reader.TryGetObject("DefObj");
-    CHECK(loaded.has_value());
-    if (loaded) 
-        CHECK_EQ(loaded->GetRowCount(), size_t(10));
+    auto loadedPlayers = reader.TryGetObject("Players");
+    auto loadedEnemies = reader.TryGetObject("Enemies");
+    auto loadedMaps = reader.TryGetObject("Maps");
+    auto loadedLevels = reader.TryGetObject("Levels");
+    
+    CHECK(loadedPlayers.has_value());
+    CHECK(loadedEnemies.has_value());
+    CHECK(loadedMaps.has_value());
+    CHECK(loadedLevels.has_value());
+
+    if (loadedPlayers)
+        CHECK_EQ(loadedPlayers->GetRowCount(), size_t(2));
+    if (loadedEnemies)
+        CHECK_EQ(loadedEnemies->GetRowCount(), size_t(2));
+    if (loadedMaps)
+        CHECK_EQ(loadedMaps->GetRowCount(), size_t(2));
+    if (loadedLevels)
+        CHECK_EQ(loadedLevels->GetRowCount(), size_t(2));
 }
 
 // ============================================================
