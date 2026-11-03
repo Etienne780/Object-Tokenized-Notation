@@ -19,7 +19,7 @@ if (!reader.ReadFile("data.otn")) {
 
 `ReadString(text)` reads from a string instead of a file. `GetVersion()` returns the format version of the file.
 
-If anything in the file is invalid, reading fails. Do not use the objects of a failed read, they can be incomplete. The error message contains the line and column of the problem, see [[error-handling]].
+If anything in the file is invalid, reading fails. Do not use the objects of a failed read, they can be incomplete. The error message contains the line and column of the problem, see [[error-handling]]. Every `ReadFile` / `ReadString` starts with a new state, so the same reader can read the next file after an error.
 
 ## Getting objects
 
@@ -30,7 +30,15 @@ if (!items) {
 }
 ```
 
-`TryGetObject` returns a copy. To work on the objects without copying, use `GetObjects()`:
+`TryGetObject` returns a copy. `FindObject` returns a pointer to the stored object instead, `nullptr` if the name does not exist:
+
+```cpp
+if (const OTN::OTNObject* items = reader.FindObject("Items")) {
+    float value = items->GetValue<float>(0, "value", 0.0f);
+}
+```
+
+The pointer is valid until the next `ReadFile` / `ReadString` or until the reader is destroyed. `GetObjects()` returns all objects:
 
 ```cpp
 for (const auto& [name, object] : reader.GetObjects()) {
@@ -42,7 +50,7 @@ for (const auto& [name, object] : reader.GetObjects()) {
 
 Values are read by row index and column name or column index. There are three variants:
 
-{hover=row; col 0: width=230}
+{hover=row; col 0: width=325}
 | Call | On error |
 |---|---|
 | `GetValue<T>(row, column)` | Throws `std::out_of_range` (row or column missing) or `std::bad_cast` (wrong type) |
@@ -50,8 +58,8 @@ Values are read by row index and column name or column index. There are three va
 | `TryGetValue<T>(row, column)` | Returns `std::nullopt` |
 
 ```cpp
-int id                          = items->GetValue<int>(0, "id");
-float value                     = items->GetValue<float>(0, "value", 0.0f);
+int id = items->GetValue<int>(0, "id");
+float value = items->GetValue<float>(0, "value", 0.0f);
 std::optional<std::string> name = items->TryGetValue<std::string>(0, 1);
 ```
 

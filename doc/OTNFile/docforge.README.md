@@ -235,7 +235,26 @@ Link object in `links`:
 
 Links of this project:
 
-_This project has no links yet._
+| Slug | Default text | Target |
+| --- | --- | --- |
+| `getting-started` | Getting Started | Getting Started |
+| `writing-data` | Writing Data | Writing Data |
+| `reading-data` | Reading Data | Reading Data |
+| `custom-types` | Custom Types | Custom Types |
+| `stream-writer` | Stream Writer | Stream Writer |
+| `stream-reader` | Stream Reader | Stream Reader |
+| `error-handling` | Error Handling | Error Handling |
+| `file-format` | File Format | File Format |
+| `types` | Types | Types |
+| `architecture` | Architecture | Architecture |
+| `type-system` | Type System | Type System |
+| `type-conversion` | Type Conversion | Type Conversion |
+| `otnobject` | OTNObject | OTNObject |
+| `object-builder` | OTNObjectBuilder | OTNObjectBuilder |
+| `syntax-layer` | Syntax Layer | Syntax Layer |
+| `writer-internals` | Writer Internals | Writer Internals |
+| `reader-internals` | Reader Internals | Reader Internals |
+| `deftype-defname` | DefType and DefName | File Format #deftype-and-defname |
 
 ## Syntax highlighting languages
 

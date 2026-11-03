@@ -27,34 +27,59 @@ Read errors contain the position in the file:
 Error at line 7, column 12: unexpected token IDENTIFIER("abc"), expected ';'
 ```
 
-## Errors are permanent
+## After an error
 
-After an error an object stays invalid, all following calls fail as well:
+After an error all following calls fail until the state is reset:
 
 | Class | Reset |
 |---|---|
 | `OTNObject` | Create a new object |
-| `OTNWriter` | Create a new writer |
-| `OTNReader` | Create a new reader |
+| `OTNWriter` | `Reset()` removes the error and all objects, the options stay |
+| `OTNReader` | Every `ReadFile` / `ReadString` starts with a new state |
 | `OTNStreamWriter` | `Open()` starts with a new state |
 | `OTNStreamReader` | `Open()` starts with a new state |
 
+```cpp
+OTN::OTNWriter writer;
+if (!writer.AppendObject(obj).Save("data.otn")) {
+    std::cerr << writer.GetError() << '\n';
+    writer.Reset(); // ready for the next file
+}
+```
+
+`OTNWriter` is not reset by `Save()` itself, so an error of `AppendObject` (for example a name that is used twice) is still reported by the next `Save()`.
+
 ## OTNObject
 
-Adding a row with the wrong number of values, an invalid custom type or wrong column names makes the object invalid. Check it before writing:
+Adding a row with the wrong number of values, an invalid custom type or invalid names makes the object invalid. Check it before writing:
 
 ```cpp
 if (!obj.IsValid())
     std::cerr << obj.GetError() << '\n';
 ```
 
-Some checks only run in **debug builds** (without `NDEBUG`), because they cost time for every row:
+These checks always run:
 
-- column names are valid and unique,
-- every row has the same types as the first row,
-- `OTNWriter` gets no invalid objects and no two objects with the same name.
+- object and column names are valid (see [[types]]) and column names are unique,
+- `SetNames` / `SetTypes` are called before the first row,
+- every row has one value per column,
+- `OTNWriter` gets no invalid objects and no two objects with the same name,
+- explicit types of custom types (`AddTypes`) match the values.
 
-In release builds these mistakes are not detected and can produce files that cannot be read.
+## OTN_DEBUG
+
+Some checks cost time for every row or value, so they only run if `OTN_DEBUG` is `1`:
+
+- every row has the types of its columns,
+- the column names of a custom type are unique.
+
+By default `OTN_DEBUG` is `1` in debug builds (without `NDEBUG`) and `0` otherwise. To change it, define it in the build system, for example in premake:
+
+```lua
+defines { "OTN_DEBUG=1" }
+```
+
+The value must be the same for all files of the program, because `OTNFile.h` and `OTNFile.cpp` both use it.
 
 ## Exceptions
 
@@ -65,4 +90,4 @@ Only reading values can throw:
 
 `GetValue<T>(row, column, default)` and `TryGetValue<T>(row, column)` never throw.
 
-File system errors (missing rights, full disk) are reported as normal errors.
+File system errors are reported as normal errors: missing folders and files, missing rights, failed reads and writes, also when the file is closed (for example a full disk). Only running out of memory (`std::bad_alloc`) is not caught.

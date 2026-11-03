@@ -8,7 +8,7 @@ name: Getting Started
 OTN (Object Tokenized Notation) is a text format for structured data. Data is stored in **named objects**. Every object works like a table: it has typed columns and any number of rows. Objects can reference rows of other objects, so nested C++ structs can be stored without repeating data.
 
 ```otn
-@version: 1;
+@version: 2;
 
 @object: {
 	Items[2] {

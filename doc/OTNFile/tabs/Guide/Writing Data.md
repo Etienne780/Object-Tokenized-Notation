@@ -5,7 +5,7 @@ name: Writing Data
 
 # Writing Data
 
-Build your data with `OTNObject`, then save it with `OTNWriter`. `OTNWriter` keeps all objects in memory until `Save()` is called. For data that does not fit into memory use the [[stream-writer]].
+Build your data with `OTNObject`, then save it with `OTNWriter`. `OTNWriter` keeps all objects in memory until `ClearObjects()` is called. For data that does not fit into memory use the [[stream-writer]].
 
 ## Building an object
 
@@ -17,13 +17,13 @@ items.SetNames("id", "name", "value")
      .AddDataRow(3, "Bow",     8.0f);
 ```
 
-- `SetNames` defines the columns. Names must be unique and must not start with a digit or contain OTN syntax characters.
+- `SetNames` defines the columns. Names must be unique and may contain letters, digits, `_` and UTF-8 characters, but must not start with a digit (see [[types]]).
 - Every `AddDataRow` adds one row. The number of values must match the number of columns.
 - `AddDataRowList(row)` adds a prepared `OTNRow`, `ReserveDataRows(n)` reserves memory for `n` rows.
 
 ## Column types
 
-Without `SetTypes()` the column types are deduced from the **first row**. Every following row must use the same types.
+Without `SetTypes()` the column types are deduced from the **first row**. Every following row must use the same types. If the first row contains an empty list, the writer takes the element type from the next row that has one.
 
 To set the types yourself, call `SetTypes()` before the first `AddDataRow()`:
 
@@ -37,7 +37,7 @@ Use `"-"`, `"_"` or `""` for a column whose type should still be deduced from th
 
 Explicit types are useful when:
 
-- the first row contains an empty list (its element type cannot be deduced),
+- all rows contain empty lists in a column (its element type cannot be deduced),
 - a column should accept different value types (`any`),
 - an object has no rows but should still be written with its columns.
 
@@ -51,7 +51,7 @@ writer.AppendObject(items)
 ```
 
 - `AppendObject` copies the object, later changes to `items` are not written.
-- Every object name may only be used once per file (checked in debug builds).
+- Every object name may only be used once per file.
 - Missing folders are created. A path without extension gets `.otn`, any other extension is an error.
 
 To get the text instead of a file:
@@ -63,7 +63,7 @@ if (writer.SaveToString(text)) {
 }
 ```
 
-`ClearObjects()` removes all appended objects, so the writer can be reused for another file.
+`ClearObjects()` removes all appended objects, so the writer can be reused for another file. `Reset()` also removes the error state, for example after a failed `Save()`. The options stay in both cases.
 
 ## Nested objects
 
@@ -81,7 +81,7 @@ player.SetNames("name", "pos", "inventory")
 ```
 
 ```otn
-@version: 1;
+@version: 2;
 
 @object: {
 	Item[2] {
@@ -109,10 +109,10 @@ All options are set before `Save()` and can be chained.
 {hover=row; col 0: width=160}
 | Method | Default | Effect |
 |---|---|---|
-| `UseDefType(true)` | off | Often used type names are replaced by numbers (`@defType`) |
-| `UseDefName(true)` | off | Often used column names are replaced by numbers (`@defName`) |
-| `UseOptimizations(true)` | off | No spaces, line breaks and indentation |
-| `UseDeduplicateRows(true)` | off | Identical rows of an object are written once and referenced multiple times |
+| `UseDefType(true)` | off | Often used type names are replaced by numbers to save storage (`@defType`) |
+| `UseDefName(true)` | off | Often used column names are replaced by numbers to save storage (`@defName`) |
+| `UseOptimizations(true)` | off | No spaces, line breaks and indentation to save storage if readability is not needed |
+| `UseDeduplicateRows(true)` | off | Identical rows of an object are written once and referenced multiple times to save storage |
 
 ```cpp
 writer.UseDefName(true)
@@ -122,7 +122,7 @@ writer.UseDefName(true)
       .Save("data.otn");
 ```
 
-A type or name is only replaced when it is used several times and the replacement saves space. The output of all options is shown in [[file-format]].
+A type or name is only replaced if the saved characters are more than its entry in `@defType` / `@defName` costs, so these options never make the file longer. Small files often get no numbers at all. The output of all options is shown in [[file-format]].
 
 With deduplication, identical rows are stored once per object. Two `Vector2{ 1, 2 }` values in different rows become one `Vector2` row that both rows reference. This also applies to the rows of the objects you append yourself: identical rows there are only written once.
 
@@ -135,4 +135,4 @@ if (!writer.Save("data.otn"))
     std::cerr << writer.GetError() << '\n';
 ```
 
-Check `IsValid()` of an `OTNObject` before appending it. An object with an error (for example a row with the wrong number of values) is only rejected by the writer in debug builds. See [[error-handling]].
+An `OTNObject` with an error (for example a row with the wrong number of values) is not written, `Save()` fails and `GetError()` names the object. Use `Reset()` to write another file with the same writer. See [[error-handling]].

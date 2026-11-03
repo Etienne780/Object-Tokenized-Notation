@@ -19,7 +19,20 @@ Every appended object is converted into a `SerializedObject` (column names, colu
 - Lists are converted element by element.
 - With `UseDeduplicateRows`, `AddOrGetRow` looks up a hash of the row first. An identical row returns its existing index.
 
-Objects with the same name end up in the same `SerializedObject`. Afterwards the type usage is counted for `@defType` and the column name usage for `@defName`. A type or name gets a number if it is used more than once and `length * uses > 9`.
+Objects with the same name end up in the same `SerializedObject`. Afterwards `CountObjectType` counts how often every name is written:
+
+- base types (`typeUsage`): columns with this type,
+- object names: `Ref<X>` columns (`objectColumnUsage`) and references `X#index` in `any` columns (`objectRefUsage`),
+- column names (`CreateDefName`): columns with this name.
+
+`ChooseDefinitions` then decides which names get a number. All lengths are measured with the syntax functions (`Current::WriteObjectHeader`, `WriteRow`, `WriteFileHeader`), so the writer knows no syntax itself:
+
+1. `DefSaving` writes one column / one reference with and without the number. The difference times the number of uses is the saving.
+2. Candidates are sorted by saving, so the names that save the most get the smallest (shortest) numbers.
+3. A name is added if its saving is more than the length of its entry in the table (`name = id, `).
+4. At the end the table as a whole must also pay for the directive (`@defType: ;`), otherwise it is removed.
+
+So `UseDefType` / `UseDefName` never make a file longer.
 
 **2. WriteHeader**
 
@@ -101,12 +114,12 @@ The rows of the two objects are mixed. Only the ranges in memory tell which byte
 
 `WriteFile` closes the temporary file and builds `world.otn`:
 
-1. `WriteFileHeader`: `@version: 1;` and the start of `@object`.
+1. `WriteFileHeader`: `@version: 2;` and the start of `@object`.
 2. For every block in the order of first use (`Position`, then `Vector2`): `WriteObjectHeader` with the final row count, then copy the ranges of the block from the temporary file (64 KB buffer).
 3. `WriteObjectBlockEnd`, then the temporary file is deleted.
 
 ```otn
-@version: 1;
+@version: 2;
 
 @object: {
 	Position[2] {

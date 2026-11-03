@@ -27,13 +27,19 @@ name: OTNObject
 
 After the first row, `DeduceTypesFromRow` sets the column types that were not given with `SetTypes()`. `SetTypes` parses the type strings with `Detail::ParseTypeString`, the same function the readers use, see [[types]].
 
-## Debug checks
+## Checks
 
-Some checks only run without `NDEBUG`, because they would cost time for every row:
+Always active:
 
-- `DebugIsNameValid`: names are not empty, do not start with a digit and contain no syntax characters,
-- `DebugValidateNamesDistinct`: no column name is used twice,
-- `DebugValidateDataTypes`: every row has the types of the first row.
+- `IsNameValid`: object, column and type names. Uses `Detail::IsNameStartChar` / `IsNameChar`, the same functions as the `Tokenizer`, so every valid name can be read again.
+- `ValidateNamesDistinct`: no column name is used twice.
+- `SetNames` / `SetTypes` before the first row, one value per column in `AddDataRow`.
+
+Only with `OTN_DEBUG` (costs time for every row):
+
+- `ValidateRowTypes`: every row has the types of its columns.
+
+`OTNObjectBuilder::ToOTNObject` calls `ValidateRowTypes(0)` always if the custom type set types with `AddTypes`.
 
 ## Column lookup
 

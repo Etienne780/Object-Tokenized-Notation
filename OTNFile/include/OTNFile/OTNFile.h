@@ -18,6 +18,21 @@
 #include <limits>
 
 /**
+* @brief OTN_DEBUG enables additional checks that cost time for every row
+* (types of every row, unique names in custom types).
+*
+* Default: on in debug builds (without NDEBUG), off otherwise.
+* Define it as 0 or 1 in the build system (the same value for all files) to override it.
+*/
+#ifndef OTN_DEBUG
+	#ifdef NDEBUG
+		#define OTN_DEBUG 0
+	#else
+		#define OTN_DEBUG 1
+	#endif
+#endif
+
+/**
 * @file OTNFile.h
 * @brief OTN (Object Tokenized Notation) - A file format library for structured data serialization
 *
@@ -137,7 +152,7 @@ inline void OTN::ToOTNDataType<Vector2>(OTN::OTNObjectBuilder& obj, Vector2& e) 
 namespace OTN {
 
 	/// @brief Current version of the OTN format.
-	inline constexpr uint8_t VERSION = 1;
+	inline constexpr uint8_t VERSION = 2;
 
 	/// @brief Standard file extension for OTN files.
 	inline constexpr std::string_view FILE_EXTENSION = ".otn";
@@ -159,6 +174,7 @@ namespace OTN {
 		inline constexpr char LIST_END_CHAR = ']';
 		inline constexpr char REF_BEGIN_CHAR = '<';
 		inline constexpr char REF_END_CHAR = '>';
+		inline constexpr char REF_INDEX_CHAR = '#'; // Name#index, reference in an 'any' value (version 2)
 
 		namespace Types {
 			inline constexpr std::string_view INT = "int";
@@ -692,19 +708,17 @@ namespace OTN {
 			static_assert((std::is_convertible_v<Args, std::string> && ...),
 				"All names must be convertible to std::string");
 
-#ifndef NDEBUG
 			if (!m_dataRows.empty()) {
 				AddError(
 					"SetNames must be called before AddData in object '" + m_name + "'!"
 				);
 				return *this;
 			}
-#endif
 			auto addName = [&](const std::string& n) {
-				if (DebugIsNameValid(n))
+				if (IsNameValid(n))
 					m_columnNames.emplace_back(n);
 				else
-					AddError("Name '" + n + "' containes invalid characters");
+					AddError("Name '" + n + "' contains invalid characters");
 				};
 
 			constexpr size_t ArgCount = sizeof...(Args);
@@ -714,7 +728,7 @@ namespace OTN {
 
 			(addName(std::forward<Args>(names)), ...);
 
-			DebugValidateNamesDistinct();
+			ValidateNamesDistinct();
 			return *this;
 		}
 
@@ -760,14 +774,12 @@ namespace OTN {
 			static_assert((std::is_convertible_v<Args, std::string> && ...),
 				"All types must be convertible to std::string");
 
-#ifndef NDEBUG
 			if (!m_dataRows.empty()) {
 				AddError(
 					"SetTypes must be called before AddData in object '" + m_name + "'!"
 				);
 				return *this;
 			}
-#endif
 			constexpr size_t ArgCount = sizeof...(Args);
 
 			std::vector<OTNTypeDesc> tmp;
@@ -851,7 +863,6 @@ namespace OTN {
 		OTNObject& AddDataRow(Args&&... args) {
 			constexpr size_t ArgCount = sizeof...(Args);
 
-#ifndef NDEBUG
 			if (m_columnNames.empty()) {
 				AddError("AddDataRow called before SetNames in object '" + m_name + "'!");
 				return *this;
@@ -872,7 +883,6 @@ namespace OTN {
 					") in object '" + m_name + "'!");
 				return *this;
 			}
-#endif
 
 			OTNRow row;
 			row.reserve(ArgCount);
@@ -893,8 +903,8 @@ namespace OTN {
 					return *this;
 			}
 
-#ifndef NDEBUG
-			DebugValidateDataTypes(m_dataRows.size() - 1);
+#if OTN_DEBUG
+			ValidateRowTypes(m_dataRows.size() - 1);
 #endif
 			return *this;
 		}
@@ -1231,15 +1241,17 @@ namespace OTN {
 		void AddError(const std::string& error) const;
 		void SetBuildFromT(bool value);
 		void SetNamesFromBuilder(std::vector<std::string>&& names);
+		bool SetTypesFromBuilder(const std::vector<std::string>& types);
 		void AddRowInternal(OTNRow&& row);
 		bool AddSingleType(std::vector<OTNTypeDesc>& tempList, const std::string& typeStr);
 		bool DeduceTypesFromRow(const OTNRow& row);
 
-		bool DebugIsNameValid(const std::string& name) const;
+		// object, column and type names: letters, digits, '_' and UTF-8 chars, not starting with a digit
+		static bool IsNameValid(const std::string& name);
 		// validates if each column name is distinct
-		bool DebugValidateNamesDistinct();
-		// validates if each data type of each row matchs the type of the first row at a specifc column
-		bool DebugValidateDataTypes(size_t rowIndex);
+		bool ValidateNamesDistinct();
+		// validates if each value of the row matches the type of its column
+		bool ValidateRowTypes(size_t rowIndex);
 	};
 
 	/**
@@ -1342,6 +1354,51 @@ namespace OTN {
 		}
 
 		/**
+		* @brief Sets the types of the next columns, like OTNObject::SetTypes.
+		*
+		* Without types they are deduced from the values. Use "-" to deduce the type of a single column.
+		* Types are needed for empty lists and 'any' columns. Ignored when loading.
+		*
+		* @tparam Args Variadic list of type strings convertible to std::string.
+		* @return Reference to self for method chaining.
+		*/
+		template<typename... Args>
+		OTNObjectBuilder& AddTypes(Args&&... types) {
+			static_assert((std::is_convertible_v<Args, std::string> && ...),
+				"All types must be convertible to std::string");
+
+			if (m_otnObjectFromT)
+				(m_dataTypes.emplace_back(std::forward<Args>(types)), ...);
+			return *this;
+		}
+
+		/**
+		* @brief Adds a single column with name, type and value.
+		*
+		* Like AddNameData, the type is used like a type of AddTypes.
+		*
+		* @tparam T Type of the value.
+		* @param name Name of the column.
+		* @param type Type string of the column, see OTNObject::SetTypes.
+		* @param data Value to add.
+		* @return Reference to self for chaining.
+		*/
+		template<typename T>
+		OTNObjectBuilder& AddNameTypeData(const std::string& name, const std::string& type, T&& data) {
+			if (m_otnObjectFromT) {
+				if (m_dataTypes.size() > m_dataNames.size()) {
+					AddError("Error adding Name, Type and Data (AddNameTypeData): more types than names in object '" +
+						m_objectName + "'!");
+					return *this;
+				}
+				// columns added without a type are deduced
+				m_dataTypes.resize(m_dataNames.size());
+				m_dataTypes.push_back(type);
+			}
+			return AddNameData(name, std::forward<T>(data));
+		}
+
+		/**
 		* @brief Returns true if the builder is in serialization mode (T → OTNObject).
 		*/
 		bool IsBuildingOTNObject() const;
@@ -1370,6 +1427,8 @@ namespace OTN {
 		std::string m_objectName;
 
 		std::vector<std::string> m_dataNames;
+		std::vector<std::string> m_dataTypes; // types of AddTypes / AddNameTypeData, can be shorter than m_dataNames
+		std::vector<bool> m_anyColumns; // loading: columns of type 'any', their numbers can be read as every number type
 		std::vector<OTNValue> m_data;
 		size_t m_dataPos = 0;/*< is used when T is set from OTNBuilder to detrimend from which position the data should come from*/
 
@@ -1399,7 +1458,7 @@ namespace OTN {
 		* @return True if deserialization succeeded.
 		*/
 		template<typename T>
-		bool DeserializeFromOTNValue(const OTNValue& val, T& data);
+		bool DeserializeFromOTNValue(const OTNValue& val, T& data, bool allowNumericConversion = false);
 
 		/**
 		* @brief Checks if a name is unique in the current object.
@@ -1623,8 +1682,9 @@ namespace OTN {
 					AddError("OTNObjectBuilder: insufficient data to extract value");
 					return false;
 				}
+				const bool anyColumn = m_dataPos < m_anyColumns.size() && m_anyColumns[m_dataPos];
 				OTNValue& val = m_data[m_dataPos++];
-				if (!DeserializeFromOTNValue<U>(val, data)) {
+				if (!DeserializeFromOTNValue<U>(val, data, anyColumn)) {
 					AddError("OTNObjectBuilder: failed to deserialize value");
 					return false;
 				}
@@ -1635,26 +1695,34 @@ namespace OTN {
 	}
 
 	template<typename T>
-	bool OTNObjectBuilder::DeserializeFromOTNValue(const OTNValue& val, T& data) {
+	bool OTNObjectBuilder::DeserializeFromOTNValue(const OTNValue& val, T& data, bool allowNumericConversion) {
 		using DT = std::decay_t<T>;
 
 		if constexpr (Detail::is_otn_base_type_v<DT>) {
 			// Base type
-			try {
-				data = std::get<DT>(val.value);
+			if (const DT* v = std::get_if<DT>(&val.value)) {
+				data = *v;
+				return true;
 			}
-			catch (...) {
-				return false;
+
+			if constexpr (Detail::is_otn_number_v<DT>) {
+				if (allowNumericConversion) {
+					if (std::optional<DT> converted = Detail::OTNConvertNumber<DT>(val.value)) {
+						data = *converted;
+						return true;
+					}
+				}
 			}
-			return true;
+			return false;
 		}
 		else if constexpr (std::is_same_v<DT, uint32_t> || std::is_same_v<DT, unsigned int>) {
 			// stored as int64 by OTNDataType
-			const int64_t* v = std::get_if<int64_t>(&val.value);
-			if (!v)
-				return false;
+			std::optional<DT> converted;
+			if (const int64_t* v = std::get_if<int64_t>(&val.value))
+				converted = Detail::OTNNumericCast<DT>(*v);
+			else if (allowNumericConversion)
+				converted = Detail::OTNConvertNumber<DT>(val.value);
 
-			std::optional<DT> converted = Detail::OTNNumericCast<DT>(*v);
 			if (!converted)
 				return false;
 
@@ -1689,19 +1757,9 @@ namespace OTN {
 
 			for (auto& elemVal : elements) {
 				ElemType elem{};
-				if constexpr (Detail::is_otn_list_v<ElemType> || !Detail::is_otn_base_type_v<ElemType>) {
-					if (!DeserializeFromOTNValue<ElemType>(elemVal, elem))
-						return false;
-					data.push_back(std::move(elem));
-				}
-				else {
-					try {
-						data.push_back(std::get<ElemType>(elemVal.value));
-					}
-					catch (...) {
-						return false;
-					}
-				}
+				if (!DeserializeFromOTNValue<ElemType>(elemVal, elem, allowNumericConversion))
+					return false;
+				data.push_back(std::move(elem));
 			}
 			return true;
 		}// if type ist not specified check if it can be made with the object builder
@@ -1843,6 +1901,14 @@ namespace OTN {
 		OTNWriter& ClearObjects();
 
 		/**
+		* @brief Removes all objects and the error state, the options stay.
+		* @return Reference to self for method chaining.
+		*
+		* Use it to write another file with the same writer, also after an error.
+		*/
+		OTNWriter& Reset();
+
+		/**
 		* @brief Reserve storage for a specified number of OTNObjects.
 		* @param amount Number of objects to reserve capacity for.
 		* @return Reference to self for method chaining.
@@ -1932,6 +1998,8 @@ namespace OTN {
 			std::string buffer;    // written text, flushed into stream when it gets large
 
 			std::unordered_map<OTNBaseType, uint32_t> typeUsage;// < map contains which data types are used and how often
+			std::unordered_map<std::string, uint32_t> objectColumnUsage;// < how often object names are used as column type (Ref<X>)
+			std::unordered_map<std::string, uint32_t> objectRefUsage;// < how often object names are used in references of 'any' columns
 			std::unordered_map<std::string, SerializedObject> objects;
 
 			Detail::FileHeaderInfo fileHeader;// < version and the @defType / @defName ids used for optimizations
@@ -1942,6 +2010,8 @@ namespace OTN {
 				buffer.clear();
 				created = false;
 				typeUsage.clear();
+				objectColumnUsage.clear();
+				objectRefUsage.clear();
 				objects.clear();
 				fileHeader = {};
 			}
@@ -1960,7 +2030,8 @@ namespace OTN {
 
 		WriterData m_writerData;
 
-		bool DebugValidateObjects();
+		// checks that all objects are valid and have distinct names
+		bool ValidateObjects();
 
 		bool WriteToFile(const OTNFilePath& path);
 		bool WriteToString(std::string& outText);
@@ -1978,7 +2049,7 @@ namespace OTN {
 
 		void AddError(const std::string& error);
 
-		void CountObjectType(const SerializedObject& obj, std::unordered_map<OTNBaseType, uint32_t>& typeUsage);
+		void CountObjectType(const SerializedObject& obj, WriterData& data);
 		static OTNTypeDesc DeduceColumnType(const OTNValue& value);
 	};
 
@@ -2337,6 +2408,16 @@ namespace OTN {
 		* @return Optional containing the object if found, std::nullopt otherwise.
 		*/
 		std::optional<OTNObject> TryGetObject(const std::string& objName) const;
+
+		/**
+		* @brief Returns a stored OTNObject by name without copying it.
+		* @param objName Name of the object.
+		* @return Pointer to the object, nullptr if not found.
+		*
+		* The pointer stays valid until the next ReadFile / ReadString call or until the reader is destroyed.
+		*/
+		const OTNObject* FindObject(const std::string& objName) const;
+		OTNObject* FindObject(const std::string& objName);
 
 		/**
 		* @brief Get all loaded OTNObjects (read-only).
