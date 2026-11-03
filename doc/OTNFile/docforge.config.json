@@ -1,0 +1,338 @@
+{
+  "id": "project_mu55p95w18mce1r1uz8j85",
+  "name": "OTNFile",
+  "settings": {
+    "isThemePreset": false,
+    "currentThemeId": "docTheme_mu55p95vhewshp93r4z3",
+    "formatGuide": {
+      "enabled": true,
+      "preferences": ""
+    }
+  },
+  "languagesStyles": [],
+  "links": [
+    {
+      "id": "link_dhodzdoc9is0j8ht9lgm",
+      "slug": "getting-started",
+      "name": "Getting Started",
+      "target": {
+        "nodeId": "node_mu55p95x7rsejz9hraxp",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_xg9edn581u33xtplpft7",
+      "slug": "writing-data",
+      "name": "Writing Data",
+      "target": {
+        "nodeId": "node_mu55p95xweb2mx16dzzse",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_5v2seh60kvj50ce9uvw5",
+      "slug": "reading-data",
+      "name": "Reading Data",
+      "target": {
+        "nodeId": "node_mu55p95x1j1aoqjvokje3",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_3efr4edt2sywb3wkh5dn",
+      "slug": "custom-types",
+      "name": "Custom Types",
+      "target": {
+        "nodeId": "node_mu55p95xk2i6alcuiyw",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_sipzz5fk2z9ri19r0wyo",
+      "slug": "stream-writer",
+      "name": "Stream Writer",
+      "target": {
+        "nodeId": "node_q7k2m9x4w1btr8vz3hpd",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_jfljooa5lqsaj08xui6d",
+      "slug": "stream-reader",
+      "name": "Stream Reader",
+      "target": {
+        "nodeId": "node_c5n8r2v6y0dkf3wq7jtm",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_39zzzzg4zdmen2khvdga",
+      "slug": "error-handling",
+      "name": "Error Handling",
+      "target": {
+        "nodeId": "node_h4t9b1s6e3xan7pk2rwc",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_j8gxbenyjqwx4hh5344t",
+      "slug": "file-format",
+      "name": "File Format",
+      "target": {
+        "nodeId": "node_mu55p95x1mur4st1tuzfby",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_fjgvq4k7bn7xj8b7tfq7",
+      "slug": "types",
+      "name": "Types",
+      "target": {
+        "nodeId": "node_w3f6j0p8u2lcy5mx9tbe",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_xkwo886vompzom75wbbr",
+      "slug": "architecture",
+      "name": "Architecture",
+      "target": {
+        "nodeId": "node_a2e7u4c9h6mpw0sj3kfr",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_4qmw2wxfogo4mvn4a4wf",
+      "slug": "type-system",
+      "name": "Type System",
+      "target": {
+        "nodeId": "node_mu55p95x16kjtnh1dqih2o",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_hym4l1vfz3zfkkibj3j4",
+      "slug": "type-conversion",
+      "name": "Type Conversion",
+      "target": {
+        "nodeId": "node_mu55p95xcc3t1kyr59wt",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_wj99ibag7i1mnbqns6pu",
+      "slug": "otnobject",
+      "name": "OTNObject",
+      "target": {
+        "nodeId": "node_mu55p95x60r14y7tsvw1",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_q80idw3706i8j76b2laj",
+      "slug": "object-builder",
+      "name": "OTNObjectBuilder",
+      "target": {
+        "nodeId": "node_mu55p95x1mr9l481ystmfe",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_lj4h9du7794g9dpmrcg6",
+      "slug": "syntax-layer",
+      "name": "Syntax Layer",
+      "target": {
+        "nodeId": "node_g8d1z5k3n7vxe2qb6ycu",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_29be2u66mr26846p7q9m",
+      "slug": "writer-internals",
+      "name": "Writer Internals",
+      "target": {
+        "nodeId": "node_mu55p95x18c549nhu7cu9",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_2i0hz2uep1enthjxjqi3",
+      "slug": "reader-internals",
+      "name": "Reader Internals",
+      "target": {
+        "nodeId": "node_mu55p95x1r773m4107y4xr",
+        "anchor": null
+      },
+      "refs": []
+    },
+    {
+      "id": "link_ogz5kok16zv0mwufxbv9",
+      "slug": "deftype-defname",
+      "name": "DefType and DefName",
+      "target": {
+        "nodeId": "node_mu55p95x1mur4st1tuzfby",
+        "anchor": "deftype-and-defname"
+      },
+      "refs": []
+    }
+  ],
+  "tabs": [
+    {
+      "id": "tab_mu55p95xy2tfxuvim3p9",
+      "name": "Guide",
+      "folderName": "Guide",
+      "nodes": [
+        {
+          "id": "node_mu55p95x7rsejz9hraxp",
+          "name": "Getting Started",
+          "fileName": "Getting Started",
+          "type": "page",
+          "children": [
+            {
+              "id": "node_mu55p95xweb2mx16dzzse",
+              "name": "Writing Data",
+              "fileName": "Writing Data",
+              "type": "page",
+              "children": []
+            },
+            {
+              "id": "node_mu55p95x1j1aoqjvokje3",
+              "name": "Reading Data",
+              "fileName": "Reading Data",
+              "type": "page",
+              "children": []
+            },
+            {
+              "id": "node_mu55p95xk2i6alcuiyw",
+              "name": "Custom Types",
+              "fileName": "Custom Types",
+              "type": "page",
+              "children": []
+            },
+            {
+              "id": "node_q7k2m9x4w1btr8vz3hpd",
+              "name": "Stream Writer",
+              "fileName": "Stream Writer",
+              "type": "page",
+              "children": []
+            },
+            {
+              "id": "node_c5n8r2v6y0dkf3wq7jtm",
+              "name": "Stream Reader",
+              "fileName": "Stream Reader",
+              "type": "page",
+              "children": []
+            },
+            {
+              "id": "node_h4t9b1s6e3xan7pk2rwc",
+              "name": "Error Handling",
+              "fileName": "Error Handling",
+              "type": "page",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tab_ujzde8gxd6ncf10epf91",
+      "name": "Reference",
+      "folderName": "Reference",
+      "nodes": [
+        {
+          "id": "node_mu55p95x1mur4st1tuzfby",
+          "name": "File Format",
+          "fileName": "File Format",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_w3f6j0p8u2lcy5mx9tbe",
+          "name": "Types",
+          "fileName": "Types",
+          "type": "page",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "tab_mu55p95x1a6rhrm1czr561",
+      "name": "Internals",
+      "folderName": "Internals",
+      "nodes": [
+        {
+          "id": "node_a2e7u4c9h6mpw0sj3kfr",
+          "name": "Architecture",
+          "fileName": "Architecture",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x16kjtnh1dqih2o",
+          "name": "Type System",
+          "fileName": "Type System",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95xcc3t1kyr59wt",
+          "name": "Type Conversion",
+          "fileName": "Type Conversion",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x60r14y7tsvw1",
+          "name": "OTNObject",
+          "fileName": "OTNObject",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x1mr9l481ystmfe",
+          "name": "OTNObjectBuilder",
+          "fileName": "OTNObjectBuilder",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_g8d1z5k3n7vxe2qb6ycu",
+          "name": "Syntax Layer",
+          "fileName": "Syntax Layer",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x18c549nhu7cu9",
+          "name": "Writer Internals",
+          "fileName": "Writer Internals",
+          "type": "page",
+          "children": []
+        },
+        {
+          "id": "node_mu55p95x1r773m4107y4xr",
+          "name": "Reader Internals",
+          "fileName": "Reader Internals",
+          "type": "page",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
