@@ -13,6 +13,7 @@
 #include <sstream>
 #include <charconv>
 #include <iomanip>
+#include <limits>
 
 /**
 * @file OTNFile.h
@@ -202,8 +203,12 @@ namespace OTN {
 		ANY
 	};
 
-	template<typename>
-	inline constexpr bool otn_always_false_v = false;
+	namespace Detail {
+
+		template<typename>
+		inline constexpr bool otn_always_false_v = false;
+
+	}
 
 	class OTNObjectBuilder;
 
@@ -218,7 +223,7 @@ namespace OTN {
 	*/
 	template<typename T>
 	void ToOTNDataType(OTNObjectBuilder&, T&) {
-		static_assert(otn_always_false_v<T>, "Unsupported type for ToOTNDataType");
+		static_assert(Detail::otn_always_false_v<T>, "Unsupported type for ToOTNDataType");
 	}
 
 	/**
@@ -263,7 +268,8 @@ namespace OTN {
 		}
 	};
 
-	namespace {
+	/// @brief Internal types and helpers, not meant to be used directly.
+	namespace Detail {
 
 		/**
 		* @brief Internal reference to an object instance
@@ -271,7 +277,7 @@ namespace OTN {
 		*/
 		struct OTNObjectRef {
 			std::string refObjectName;
-			int index = 0;
+			size_t index = 0;
 
 			OTNObjectRef() = default;
 
@@ -280,7 +286,7 @@ namespace OTN {
 			* @param _objName Name of referenced object type
 			* @param _index Instance index
 			*/
-			OTNObjectRef(const std::string& _objName, int _index)
+			OTNObjectRef(const std::string& _objName, size_t _index)
 				: refObjectName(_objName), index(_index) {
 			}
 
@@ -360,9 +366,10 @@ namespace OTN {
 #pragma region OTNObject
 
 	class OTNObject;
-	class OTNArray;
-	
-	namespace {
+
+	namespace Detail {
+		class OTNArray;
+
 		using OTNObjectPtr = std::shared_ptr<OTNObject>;
 		using OTNArrayPtr = std::shared_ptr<OTNArray>;
 	}
@@ -375,69 +382,73 @@ namespace OTN {
 		double,
 		bool,
 		std::string,
-		OTNObjectPtr,
-		OTNArrayPtr,
-		OTNObjectRef
+		Detail::OTNObjectPtr,
+		Detail::OTNArrayPtr,
+		Detail::OTNObjectRef
 	>;
 
-	template<typename T>
-	struct OTNTypeOf {
-		static constexpr OTNBaseType value = OTNBaseType::UNKNOWN;
-	};
+	namespace Detail {
 
-	template<> struct OTNTypeOf<int> {
-		static constexpr OTNBaseType value = OTNBaseType::INT;
-	};
+		template<typename T>
+		struct OTNTypeOf {
+			static constexpr OTNBaseType value = OTNBaseType::UNKNOWN;
+		};
 
-	template<> struct OTNTypeOf<int64_t> {
-		static constexpr OTNBaseType value = OTNBaseType::INT64;
-	};
+		template<> struct OTNTypeOf<int> {
+			static constexpr OTNBaseType value = OTNBaseType::INT;
+		};
 
-	template<> struct OTNTypeOf<uint64_t> {
-		static constexpr OTNBaseType value = OTNBaseType::UINT64;
-	};
+		template<> struct OTNTypeOf<int64_t> {
+			static constexpr OTNBaseType value = OTNBaseType::INT64;
+		};
 
-	template<> struct OTNTypeOf<float> {
-		static constexpr OTNBaseType value = OTNBaseType::FLOAT;
-	};
+		template<> struct OTNTypeOf<uint64_t> {
+			static constexpr OTNBaseType value = OTNBaseType::UINT64;
+		};
 
-	template<> struct OTNTypeOf<double> {
-		static constexpr OTNBaseType value = OTNBaseType::DOUBLE;
-	};
+		template<> struct OTNTypeOf<float> {
+			static constexpr OTNBaseType value = OTNBaseType::FLOAT;
+		};
 
-	template<> struct OTNTypeOf<bool> {
-		static constexpr OTNBaseType value = OTNBaseType::BOOL;
-	};
+		template<> struct OTNTypeOf<double> {
+			static constexpr OTNBaseType value = OTNBaseType::DOUBLE;
+		};
 
-	template<> struct OTNTypeOf<std::string> {
-		static constexpr OTNBaseType value = OTNBaseType::STRING;
-	};
+		template<> struct OTNTypeOf<bool> {
+			static constexpr OTNBaseType value = OTNBaseType::BOOL;
+		};
 
-	template<> struct OTNTypeOf<OTNObjectPtr> {
-		static constexpr OTNBaseType value = OTNBaseType::OBJECT;
-	};
+		template<> struct OTNTypeOf<std::string> {
+			static constexpr OTNBaseType value = OTNBaseType::STRING;
+		};
 
-	template<> struct OTNTypeOf<OTNObjectRef> {
-		static constexpr OTNBaseType value = OTNBaseType::OBJECT_REF;
-	};
+		template<> struct OTNTypeOf<Detail::OTNObjectPtr> {
+			static constexpr OTNBaseType value = OTNBaseType::OBJECT;
+		};
 
-	template<> struct OTNTypeOf<OTNArrayPtr> {
-		static constexpr OTNBaseType value = OTNBaseType::LIST;
-	};
+		template<> struct OTNTypeOf<Detail::OTNObjectRef> {
+			static constexpr OTNBaseType value = OTNBaseType::OBJECT_REF;
+		};
 
-	template<typename T>
-	inline constexpr OTNBaseType GetType() {
-		return OTNTypeOf<std::decay_t<T>>::value;
-	}
+		template<> struct OTNTypeOf<Detail::OTNArrayPtr> {
+			static constexpr OTNBaseType value = OTNBaseType::LIST;
+		};
 
-	inline OTNBaseType GetTypeFromVariant(const OTNValueVariant& variant) {
-		return std::visit(
-			[](const auto& value) constexpr -> OTNBaseType {
-				using T = std::decay_t<decltype(value)>;
-				return GetType<T>();
-			},
-			variant
-		);
+		template<typename T>
+		inline constexpr OTNBaseType GetType() {
+			return OTNTypeOf<std::decay_t<T>>::value;
+		}
+
+		inline OTNBaseType GetTypeFromVariant(const OTNValueVariant& variant) {
+			return std::visit(
+				[](const auto& value) constexpr -> OTNBaseType {
+					using T = std::decay_t<decltype(value)>;
+					return GetType<T>();
+				},
+				variant
+			);
+		}
+
 	}
 
 	/**
@@ -454,7 +465,7 @@ namespace OTN {
 		* @param v Value variant
 		*/
 		explicit OTNValue(OTNValueVariant v)
-			: value(std::move(v)), type(GetTypeFromVariant(value)) {
+			: value(std::move(v)), type(Detail::GetTypeFromVariant(value)) {
 		}
 
 		OTNValue(const OTNValue& other)
@@ -496,8 +507,8 @@ namespace OTN {
 						return false;
 					}
 					else if constexpr (
-						std::is_same_v<T, OTNObjectPtr> ||
-						std::is_same_v<T, OTNArrayPtr>)
+						std::is_same_v<T, Detail::OTNObjectPtr> ||
+						std::is_same_v<T, Detail::OTNArrayPtr>)
 					{
 						return a.get() == b.get();
 					}
@@ -511,52 +522,112 @@ namespace OTN {
 		}
 	};
 
-	/**
-	* @brief Container for array/list values
-	* Used internally to represent lists
-	*/
-	class OTNArray {
-	public:
-		std::vector<OTNValue> values;
-	};
+	namespace Detail {
 
-	template<typename T>
-	struct otn_is_std_vector : std::false_type {};
+		/**
+		* @brief Container for array/list values
+		* Used internally to represent lists
+		*/
+		class OTNArray {
+		public:
+			std::vector<OTNValue> values;
+		};
 
-	template<typename U, typename Alloc>
-	struct otn_is_std_vector<std::vector<U, Alloc>> : std::true_type {};
+		template<typename T>
+		struct otn_is_std_vector : std::false_type {};
 
-	template<typename T>
-	static constexpr bool is_otn_variant_v =
-		std::is_same_v<std::decay_t<T>, OTNValueVariant>;
+		template<typename U, typename Alloc>
+		struct otn_is_std_vector<std::vector<U, Alloc>> : std::true_type {};
 
-	template<typename T>
-	struct is_otn_base_type : std::false_type {};
+		template<typename T>
+		static constexpr bool is_otn_variant_v =
+			std::is_same_v<std::decay_t<T>, OTNValueVariant>;
 
-	template<> struct is_otn_base_type<int> : std::true_type {};
-	template<> struct is_otn_base_type<int64_t> : std::true_type {};
-	template<> struct is_otn_base_type<uint64_t> : std::true_type {};
-	template<> struct is_otn_base_type<float> : std::true_type {};
-	template<> struct is_otn_base_type<double> : std::true_type {};
-	template<> struct is_otn_base_type<bool> : std::true_type {};
-	template<> struct is_otn_base_type<std::string> : std::true_type {};
-	template<> struct is_otn_base_type<const char*> : std::true_type {};
-	template<size_t N> struct is_otn_base_type<const char[N]> : std::true_type {};
-	template<> struct is_otn_base_type<OTNObjectRef> : std::true_type {};
+		template<typename T>
+		struct is_otn_base_type : std::false_type {};
 
-	template<typename T>
-	inline constexpr bool is_otn_base_type_v = is_otn_base_type<T>::value;
+		template<> struct is_otn_base_type<int> : std::true_type {};
+		template<> struct is_otn_base_type<int64_t> : std::true_type {};
+		template<> struct is_otn_base_type<uint64_t> : std::true_type {};
+		template<> struct is_otn_base_type<float> : std::true_type {};
+		template<> struct is_otn_base_type<double> : std::true_type {};
+		template<> struct is_otn_base_type<bool> : std::true_type {};
+		template<> struct is_otn_base_type<std::string> : std::true_type {};
+		template<> struct is_otn_base_type<const char*> : std::true_type {};
+		template<size_t N> struct is_otn_base_type<const char[N]> : std::true_type {};
+		template<> struct is_otn_base_type<Detail::OTNObjectRef> : std::true_type {};
 
-	template<typename T>
-	struct is_otn_list : std::false_type {};
+		template<typename T>
+		inline constexpr bool is_otn_base_type_v = is_otn_base_type<T>::value;
 
-	template<typename T, typename Alloc>
-	struct is_otn_list<std::vector<T, Alloc>> : std::true_type {};
-	template<typename T, std::size_t N>
-	struct is_otn_list<std::array<T, N>> : std::true_type {};
+		template<typename T>
+		struct is_otn_list : std::false_type {};
 
-	template<typename T>
-	inline constexpr bool is_otn_list_v = is_otn_list<T>::value;
+		template<typename T, typename Alloc>
+		struct is_otn_list<std::vector<T, Alloc>> : std::true_type {};
+		template<typename T, std::size_t N>
+		struct is_otn_list<std::array<T, N>> : std::true_type {};
+
+		template<typename T>
+		inline constexpr bool is_otn_list_v = is_otn_list<T>::value;
+
+		template<typename T>
+		inline constexpr bool is_otn_number_v =
+			std::is_arithmetic_v<T> && !std::is_same_v<T, bool>;
+
+		/**
+		* @brief Range checked conversion between numeric types.
+		* @return std::nullopt if the value does not fit into To (or is not integral for integer targets)
+		*/
+		template<typename To, typename From>
+		std::optional<To> OTNNumericCast(From value) {
+			if constexpr (std::is_floating_point_v<To>) {
+				return static_cast<To>(value);
+			}
+			else if constexpr (std::is_floating_point_v<From>) {
+				if (!std::isfinite(value) || std::trunc(value) != value)
+					return std::nullopt;
+
+				constexpr long double lo = static_cast<long double>(std::numeric_limits<To>::min());
+				constexpr long double hi = static_cast<long double>(std::numeric_limits<To>::max()) + 1.0L;
+				const long double v = static_cast<long double>(value);
+				if (!(v >= lo && v < hi))
+					return std::nullopt;
+				return static_cast<To>(value);
+			}
+			else if constexpr (std::is_signed_v<From> == std::is_signed_v<To>) {
+				if (value < std::numeric_limits<To>::min() || value > std::numeric_limits<To>::max())
+					return std::nullopt;
+				return static_cast<To>(value);
+			}
+			else if constexpr (std::is_signed_v<From>) {
+				if (value < 0 || static_cast<std::make_unsigned_t<From>>(value) > std::numeric_limits<To>::max())
+					return std::nullopt;
+				return static_cast<To>(value);
+			}
+			else {
+				if (value > static_cast<std::make_unsigned_t<To>>(std::numeric_limits<To>::max()))
+					return std::nullopt;
+				return static_cast<To>(value);
+			}
+		}
+
+		/**
+		* @brief Converts any numeric value stored in a variant to To.
+		* @return std::nullopt if the variant holds no number or the value does not fit.
+		*/
+		template<typename To>
+		std::optional<To> OTNConvertNumber(const OTNValueVariant& variant) {
+			return std::visit([](const auto& v) -> std::optional<To> {
+				using From = std::decay_t<decltype(v)>;
+				if constexpr (Detail::is_otn_number_v<From>)
+					return Detail::OTNNumericCast<To>(v);
+				else
+					return std::nullopt;
+				}, variant);
+		}
+
+	}
 
 	/// Type alias for a row of data values
 	using OTNRow = std::vector<OTNValue>;
@@ -807,9 +878,10 @@ namespace OTN {
 				};
 			(addValue(std::forward<Args>(args)), ...);
 
-			if (rowValid) {
-				m_dataRows.emplace_back(std::move(row));
-			}
+			if (!rowValid)
+				return *this;
+
+			m_dataRows.emplace_back(std::move(row));
 
 			if (!m_deducedColumnTypes) {
 				if (!DeduceTypesFromRow(m_dataRows.back()))
@@ -1003,7 +1075,7 @@ namespace OTN {
 			if (column >= r.size())
 				throw std::out_of_range("column out of bounds");
 
-			auto opt = TryDeserializeValue<T>(r[column]);
+			auto opt = TryDeserializeValueImpl<T>(r[column], IsAnyColumn(column));
 			if (!opt)
 				throw std::bad_cast();
 
@@ -1074,7 +1146,7 @@ namespace OTN {
 			if (column >= r.size())
 				return std::nullopt;
 
-			return TryDeserializeValue<T>(r[column]);
+			return TryDeserializeValueImpl<T>(r[column], IsAnyColumn(column));
 		}
 
 		/**
@@ -1093,7 +1165,9 @@ namespace OTN {
 		* @return std::optional with the converted value, or std::nullopt on failure
 		*/
 		template<typename T>
-		std::optional<T> TryDeserializeValue(const OTNValue& val) const;
+		std::optional<T> TryDeserializeValue(const OTNValue& val) const {
+			return TryDeserializeValueImpl<T>(val, false);
+		}
 
 	private:
 		std::string m_name;
@@ -1117,6 +1191,16 @@ namespace OTN {
 		* @return Column index if found, otherwise std::nullopt.
 		*/
 		std::optional<size_t> GetColumnID(const std::string& name) const;
+
+		// true if the column type is 'any', numbers in such columns can be read as any numeric type
+		bool IsAnyColumn(size_t column) const;
+
+		/**
+		* @brief Converts an OTNValue into T, see TryDeserializeValue.
+		* @param allowNumericConversion If true, numbers are converted (range checked) to the requested numeric type.
+		*/
+		template<typename T>
+		std::optional<T> TryDeserializeValueImpl(const OTNValue& val, bool allowNumericConversion) const;
 
 		/**
 		* @brief Adds a single value to an output row with type validation.
@@ -1230,7 +1314,7 @@ namespace OTN {
 		template<typename T>
 		OTNObjectBuilder& AddNameData(const std::string& name, T&& data) {
 			if (!m_otnObjectFromT) {
-				AddSingleData<T>(data);
+				AddSingleData(std::forward<T>(data));
 				return *this;
 			}
 
@@ -1248,7 +1332,7 @@ namespace OTN {
 				return *this;
 			}
 
-			AddSingleData<T>(data);
+			AddSingleData(std::forward<T>(data));
 			return *this;
 		}
 
@@ -1326,107 +1410,122 @@ namespace OTN {
 		bool IsDataOutOfSync() const;
 	};
 
-	/**
-	* @brief Template for converting a value of type U into an OTNValue.
-	* @tparam U Type to wrap.
-	*
-	* Handles:
-	* 
-	* - Base types
-	* 
-	* - Lists (vectors)
-	* 
-	* - Nested objects
-	*/
-	template<typename U>
-	class OTNDataType {
-	public:
-		// accept both lvalues and rvalues
-		explicit OTNDataType(const U& value) {
-			Construct(std::forward<const U&>(value));
-		}
+	namespace Detail {
 
-		explicit OTNDataType(U&& value) {
-			Construct(std::forward<U>(value));
-		}
+		/**
+		* @brief Template for converting a value of type U into an OTNValue.
+		* @tparam U Type to wrap.
+		*
+		* Handles:
+		* 
+		* - Base types
+		* 
+		* - Lists (vectors)
+		* 
+		* - Nested objects
+		*/
+		template<typename U>
+		class OTNDataType {
+		public:
+			// accept both lvalues and rvalues
+			explicit OTNDataType(const U& value) {
+				Construct(std::forward<const U&>(value));
+			}
 
-	private:
-		void Construct(const U& value) {
-			using DT = std::decay_t<U>;
+			explicit OTNDataType(U&& value) {
+				Construct(std::forward<U>(value));
+			}
 
-			if constexpr (is_otn_list_v<DT>) {
-				OTNArrayPtr otnArray = std::make_shared<OTNArray>();
-				otnArray->values.reserve(value.size());
-				for (auto&& elem : value) {
-					OTNDataType<std::decay_t<decltype(elem)>> elemData(elem);
-					if (!elemData.m_valid) {
-						AddError(elemData.m_error);
+		private:
+			void Construct(const U& value) {
+				using DT = std::decay_t<U>;
+
+				if constexpr (is_otn_list_v<DT>) {
+					Detail::OTNArrayPtr otnArray = std::make_shared<Detail::OTNArray>();
+					otnArray->values.reserve(value.size());
+					for (auto&& elem : value) {
+						OTNDataType<std::decay_t<decltype(elem)>> elemData(elem);
+						if (!elemData.m_valid) {
+							AddError(elemData.m_error);
+							return;
+						}
+						otnArray->values.emplace_back(std::move(elemData.m_value));
+					}
+					m_value = otnArray;
+				}
+				else if constexpr (std::is_same_v<DT, OTNObject>) {
+					m_value = std::make_shared<OTNObject>(value); // copy
+				}
+				else if constexpr (std::is_same_v<DT, const char*>) {
+					m_value = std::string(value);
+				}
+				else if constexpr (is_otn_base_type_v<DT>) {
+					m_value = value;
+				}
+				else if constexpr (std::is_same_v<DT, uint32_t> ||
+					std::is_same_v<DT, unsigned int>) {
+					m_value = static_cast<int64_t>(value);
+				}
+				else {
+					OTNObjectBuilder builder;
+					// cast const away, because ToOTNDataType needs a non-const reference (value is only read while serializing)
+					ToOTNDataType<DT>(builder, const_cast<U&>(value));
+					if (!builder.IsValid()) {
+						AddError(builder.GetError());
 						return;
 					}
-					otnArray->values.emplace_back(std::move(elemData.m_value));
+					Detail::OTNObjectPtr ptr = std::make_shared<OTNObject>(std::move(builder).ToOTNObject());
+
+					if (!ptr->IsValid())
+						AddError(ptr->GetError());
+
+					m_value = ptr;
 				}
-				m_value = otnArray;
 			}
-			else if constexpr (std::is_same_v<DT, OTNObject>) {
-				m_value = std::make_shared<OTNObject>(value); // copy
-			}
-			else if constexpr (std::is_same_v<DT, const char*>) {
-				m_value = std::string(value);
-			}
-			else if constexpr (is_otn_base_type_v<DT>) {
-				m_value = value;
-			}
-			else if constexpr (std::is_same_v<DT, uint32_t> ||
-				std::is_same_v<DT, unsigned int>) {
-				m_value = static_cast<int64_t>(value);
-			}
-			else {
-				OTNObjectBuilder builder;
-				// cast const, because ToOTNDataType needs a non-const reference
-				ToOTNDataType<DT>(builder, static_cast<U>(value));
-				if (!builder.IsValid()) {
-					AddError(builder.GetError());
-					return;
-				}
-				OTNObjectPtr ptr = std::make_shared<OTNObject>(std::move(builder).ToOTNObject());
 
-				if (!ptr->IsValid())
-					AddError(ptr->GetError());
+		public:
+			OTNValueVariant m_value;
+			bool m_valid = true;
+			std::string m_error;
 
-				m_value = ptr;
+			void AddError(const std::string& error) {
+				m_valid = false;
+				if (!m_error.empty())
+					m_error += "\n";
+				m_error += error;
 			}
-		}
+		};
 
-	public:
-		OTNValueVariant m_value;
-		bool m_valid = true;
-		std::string m_error;
-
-		void AddError(const std::string& error) {
-			m_valid = false;
-			if (!m_error.empty())
-				m_error += "\n";
-			m_error += error;
-		}
-	};
+	}
 
 	template<typename T>
-	std::optional<T> OTNObject::TryDeserializeValue(const OTNValue& val) const {
+	std::optional<T> OTNObject::TryDeserializeValueImpl(const OTNValue& val, bool allowNumericConversion) const {
 		using DT = std::decay_t<T>;
 
-		if constexpr (is_otn_base_type_v<DT>) {
-			try {
-				return std::get<DT>(val.value);
+		if constexpr (Detail::is_otn_base_type_v<DT>) {
+			if (const DT* v = std::get_if<DT>(&val.value))
+				return *v;
+
+			if constexpr (Detail::is_otn_number_v<DT>) {
+				if (allowNumericConversion)
+					return Detail::OTNConvertNumber<DT>(val.value);
 			}
-			catch (...) {
-				return std::nullopt;
-			}
+			return std::nullopt;
 		}
-		else if constexpr (otn_is_std_vector<DT>::value) {
+		else if constexpr (std::is_same_v<DT, uint32_t> || std::is_same_v<DT, unsigned int>) {
+			// stored as int64 by OTNDataType
+			if (const int64_t* v = std::get_if<int64_t>(&val.value))
+				return Detail::OTNNumericCast<DT>(*v);
+
+			if (allowNumericConversion)
+				return Detail::OTNConvertNumber<DT>(val.value);
+			return std::nullopt;
+		}
+		else if constexpr (Detail::otn_is_std_vector<DT>::value) {
 			if (val.type != OTNBaseType::LIST)
 				return std::nullopt;
 
-			OTNArrayPtr ptr = std::get<OTNArrayPtr>(val.value);
+			Detail::OTNArrayPtr ptr = std::get<Detail::OTNArrayPtr>(val.value);
 			if (!ptr)
 				return std::nullopt;
 
@@ -1434,7 +1533,7 @@ namespace OTN {
 			using ElemType = typename DT::value_type;
 			result.reserve(ptr->values.size());
 			for (const OTNValue& elem : ptr->values) {
-				auto conv = TryDeserializeValue<ElemType>(elem);
+				auto conv = TryDeserializeValueImpl<ElemType>(elem, allowNumericConversion);
 				if (!conv)
 					return std::nullopt;
 				result.push_back(std::move(*conv));
@@ -1446,7 +1545,7 @@ namespace OTN {
 				return std::nullopt;
 
 			try {
-				OTNObjectPtr ptr = std::get<OTNObjectPtr>(val.value);
+				Detail::OTNObjectPtr ptr = std::get<Detail::OTNObjectPtr>(val.value);
 				if (!ptr)
 					return std::nullopt;
 
@@ -1460,7 +1559,7 @@ namespace OTN {
 			if (val.type != OTNBaseType::OBJECT)
 				return std::nullopt;
 
-			OTNObjectPtr ptr = std::get<OTNObjectPtr>(val.value);
+			Detail::OTNObjectPtr ptr = std::get<Detail::OTNObjectPtr>(val.value);
 			if (!ptr || ptr->GetRowCount() != 1)
 				return std::nullopt;
 
@@ -1481,11 +1580,11 @@ namespace OTN {
 		if constexpr (std::is_same_v<DT, OTNValue>) {
 			outRow.emplace_back(std::forward<U>(value));
 		}
-		else if constexpr (is_otn_variant_v<DT>) {
+		else if constexpr (Detail::is_otn_variant_v<DT>) {
 			outRow.emplace_back(std::forward<U>(value));
 		}
 		else {
-			OTNDataType<DT> data(std::forward<U>(value));
+			Detail::OTNDataType<DT> data(std::forward<U>(value));
 			if (!data.m_valid) {
 				outRowValid = false;
 				AddError("Invalid data in object '" + m_name + "':\n" + data.m_error);
@@ -1501,7 +1600,7 @@ namespace OTN {
 
 		if (m_otnObjectFromT) {
 			// Serialize: T -> OTNObject
-			OTNDataType<U> wrappedData(std::forward<T>(data));
+			Detail::OTNDataType<U> wrappedData(std::forward<T>(data));
 			if (!wrappedData.m_valid) {
 				AddError("OTNObjectBuilder: failed to serialize data: " + wrappedData.m_error);
 				return false;
@@ -1510,14 +1609,20 @@ namespace OTN {
 		}
 		else {
 			// Deserialize: OTNObject -> T
-			if (m_dataPos >= m_data.size()) {
-				AddError("OTNObjectBuilder: insufficient data to extract value");
+			if constexpr (std::is_const_v<std::remove_reference_t<T>>) {
+				AddError("OTNObjectBuilder: cannot deserialize into a const value");
 				return false;
 			}
-			OTNValue& val = m_data[m_dataPos++];
-			if (!DeserializeFromOTNValue<U>(val, data)) {
-				AddError("OTNObjectBuilder: failed to deserialize value");
-				return false;
+			else {
+				if (m_dataPos >= m_data.size()) {
+					AddError("OTNObjectBuilder: insufficient data to extract value");
+					return false;
+				}
+				OTNValue& val = m_data[m_dataPos++];
+				if (!DeserializeFromOTNValue<U>(val, data)) {
+					AddError("OTNObjectBuilder: failed to deserialize value");
+					return false;
+				}
 			}
 		}
 
@@ -1528,7 +1633,7 @@ namespace OTN {
 	bool OTNObjectBuilder::DeserializeFromOTNValue(const OTNValue& val, T& data) {
 		using DT = std::decay_t<T>;
 
-		if constexpr (is_otn_base_type_v<DT>) {
+		if constexpr (Detail::is_otn_base_type_v<DT>) {
 			// Base type
 			try {
 				data = std::get<DT>(val.value);
@@ -1538,24 +1643,37 @@ namespace OTN {
 			}
 			return true;
 		}
+		else if constexpr (std::is_same_v<DT, uint32_t> || std::is_same_v<DT, unsigned int>) {
+			// stored as int64 by OTNDataType
+			const int64_t* v = std::get_if<int64_t>(&val.value);
+			if (!v)
+				return false;
+
+			std::optional<DT> converted = Detail::OTNNumericCast<DT>(*v);
+			if (!converted)
+				return false;
+
+			data = *converted;
+			return true;
+		}
 		else if constexpr (std::is_same_v<DT, OTNObject>) {
 			// Custom object
 			if (val.type != OTNBaseType::OBJECT)
 				return false;
-			OTNObjectPtr& ptr = std::get<OTNObjectPtr>(val.value);
+			const Detail::OTNObjectPtr& ptr = std::get<Detail::OTNObjectPtr>(val.value);
 			if (!ptr)
 				return false;
 			data = *(ptr.get());
 			return true;
 		}
-		else if constexpr (is_otn_list_v<DT>) {
+		else if constexpr (Detail::is_otn_list_v<DT>) {
 			// List or nested list
 			data.clear();
 			using ElemType = typename DT::value_type;
 
 			std::vector<OTNValue> elements;
 			if (val.type == OTNBaseType::LIST) {
-				OTNArrayPtr arrayPtr = std::get<OTNArrayPtr>(val.value);
+				Detail::OTNArrayPtr arrayPtr = std::get<Detail::OTNArrayPtr>(val.value);
 				if (!arrayPtr)
 					return false;
 				elements = arrayPtr->values;
@@ -1566,7 +1684,7 @@ namespace OTN {
 
 			for (auto& elemVal : elements) {
 				ElemType elem{};
-				if constexpr (is_otn_list_v<ElemType> || !is_otn_base_type_v<ElemType>) {
+				if constexpr (Detail::is_otn_list_v<ElemType> || !Detail::is_otn_base_type_v<ElemType>) {
 					if (!DeserializeFromOTNValue<ElemType>(elemVal, elem))
 						return false;
 					data.push_back(std::move(elem));
@@ -1583,7 +1701,7 @@ namespace OTN {
 			return true;
 		}// if type ist not specified check if it can be made with the object builder
 		else if (val.type == OTNBaseType::OBJECT) {
-			OTNObjectPtr ptr = std::get<OTNObjectPtr>(val.value);
+			Detail::OTNObjectPtr ptr = std::get<Detail::OTNObjectPtr>(val.value);
 			if (!ptr)
 				return false;
 
@@ -1829,9 +1947,14 @@ namespace OTN {
 			void Reset() {
 				if (stream.stream.is_open())
 					stream.stream.close();
+				stream.buffer.clear();
+				stream.indentLevel = 0;
+				stream.newLine = true;
 				created = false;
 				typeUsage.clear();
 				objects.clear();
+				defType.clear();
+				defName.clear();
 			}
 		};
 
@@ -2036,7 +2159,7 @@ namespace OTN {
 					return;
 				
 				using DT = std::decay_t<decltype(v)>;
-				OTNDataType<DT> dt(std::forward<decltype(v)>(v));
+				Detail::OTNDataType<DT> dt(std::forward<decltype(v)>(v));
 				if (!dt.m_valid) { 
 					AddError(dt.m_error); 
 					rowValid = false; 
@@ -2139,27 +2262,38 @@ namespace OTN {
 		/// Rows written per object name (updated by both AppendObject and EndObject).
 		std::unordered_map<std::string, size_t> m_writtenRowCounts;
 
-		/// Maps raw OTNObject pointer → row index in the file, for deduplication.
-		std::unordered_map<const OTNObject*, size_t> m_objPtrToIndex;
+		struct WrittenObject {
+			std::weak_ptr<OTNObject> owner; ///< used to detect if the address was reused by a new object
+			size_t index = 0;
+		};
+
+		/// Maps raw OTNObject pointer of sub-objects → first row index in the file, for deduplication.
+		std::unordered_map<const OTNObject*, WrittenObject> m_objPtrToIndex;
 
 		// ---- helpers called from AppendObject ------------------------------------
 
 		/**
-		* @brief Recursively ensures all OTNObjectPtr values referenced by val have
-		*        already been written (writing them now if needed).
+		* @brief Returns the first row index of an already written (or index assigned) sub-object.
 		*/
-		bool EnsureSubObjectsWritten(const OTNValue& val);
+		std::optional<size_t> FindWrittenIndex(const Detail::OTNObjectPtr& ptr) const;
+
+		/**
+		* @brief Appends the row indices of a sub-object to outIndices.
+		*
+		* Objects build from T are referenced by one index, native objects by one index per row.
+		*/
+		void AppendObjectIndices(const Detail::OTNObjectPtr& ptr, std::vector<size_t>& outIndices) const;
 
 		/**
 		* @brief Convert a single OTNValue for stream output.
 		*
-		* OTNObjectPtr   → integer index  (single ref, no list wrapping)
+		* OTNObjectPtr   → integer index, or [idx, ...] if colType is a list
 		* LIST of OBJECT → [idx, ...]     (list of integer refs)
 		* Everything else → unchanged.
-		*
-		* @param colType May be modified (listDepth) to reflect the actual output type.
 		*/
-		OTNValue ConvertValueForStream(const OTNValue& val, OTNTypeDesc& colType);
+		OTNValue ConvertValueForStream(const OTNValue& val, const OTNTypeDesc& colType) const;
+
+		void ResetFileState();
 
 		/**
 		* @brief Write a header block for an object whose row count is already known.
@@ -2317,6 +2451,8 @@ namespace OTN {
 
 				version = 0;
 				objects.clear();
+				defType.clear();
+				defName.clear();
 			}
 		};
 
@@ -2415,7 +2551,7 @@ namespace OTN {
 			const OTNObject* GetOTNObject(const std::string& objName) const;
 			std::vector<size_t> GetObjectIndieces(const OTNObject& object);
 
-			bool AddIdentifier(const Token& token, const std::unordered_map<uint32_t, std::string>& map, std::vector<std::string>& list);
+			bool ResolveIdentifier(const Token& token, const std::unordered_map<uint32_t, std::string>& map, std::string& out);
 
 			const Token& Peek();
 			const Token& Next();
@@ -2453,6 +2589,11 @@ namespace OTN {
 							return T{};
 						}
 						text = "-" + next.text;
+
+						if constexpr (std::is_unsigned_v<T>) {
+							reader->AddError(token, "Negative value for unsigned type");
+							return T{};
+						}
 					}
 
 					if constexpr (std::is_same_v<T, int>) {
@@ -2534,7 +2675,7 @@ namespace OTN {
 	* 
 	* - Calling NextObject() without reading all rows auto-skips remaining rows.
 	* 
-	* - Object references are returned as OTNObjectRef (unresolved).
+	* - Object references are returned as Detail::OTNObjectRef (unresolved).
 	*/
 	class OTNStreamReader {
 	public:

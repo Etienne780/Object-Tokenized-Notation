@@ -5,6 +5,7 @@
 #include "Tests/TestObject.h"
 #include "Tests/TestWriterReader.h"
 #include "Tests/TestStream.h"
+#include "Tests/TestBugfixes.h"
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -31,6 +32,7 @@ int main(int argc, char** argv) {
     RunObjectTests(basePath);
     RunWriterReaderTests(basePath);
     RunStreamTests(basePath);
+    RunBugfixTests(basePath);
 
     PrintSummary();
     std::cin.get();
