@@ -301,7 +301,7 @@ inline void Test_Bugfix_WriterMultipleSaves(const std::filesystem::path&) {
 }
 
 // ============================================================
-//  StreamWriter: BeginObject with an already written name
+//  StreamWriter: BeginObject with an already written name appends the rows
 // ============================================================
 
 inline void Test_Bugfix_StreamBeginObjectTwice(const std::filesystem::path& dir) {
@@ -312,11 +312,16 @@ inline void Test_Bugfix_StreamBeginObjectTwice(const std::filesystem::path& dir)
     CHECK(sw.BeginObject("X", OTN::col("v", "int")));
     CHECK(sw.WriteRow(1));
     CHECK(sw.EndObject());
-    CHECK(!sw.BeginObject("X", OTN::col("v", "int")));
-    sw.Close();
+    CHECK(sw.BeginObject("X", OTN::col("v", "int")));
+    CHECK(sw.WriteRow(2));
+    CHECK(sw.Close());
 
     OTN::OTNReader r;
     CHECK(r.ReadFile(path));
+    auto x = r.TryGetObject("X");
+    CHECK(x.has_value());
+    if (x)
+        CHECK_EQ(x->GetRowCount(), size_t(2));
 }
 
 // ============================================================

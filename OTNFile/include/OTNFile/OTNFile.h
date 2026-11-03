@@ -10,9 +10,11 @@
 #include <cstdint>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <sstream>
 #include <charconv>
 #include <iomanip>
+#include <cmath>
 #include <limits>
 
 /**
@@ -139,6 +141,9 @@ namespace OTN {
 
 	/// @brief Standard file extension for OTN files.
 	inline constexpr std::string_view FILE_EXTENSION = ".otn";
+
+	/// @brief File extension of temporary files created by OTNStreamWriter next to the target file.
+	inline constexpr std::string_view TEMP_FILE_EXTENSION = ".otn.tmp";
 
 	namespace Syntax {
 
@@ -629,7 +634,7 @@ namespace OTN {
 
 	}
 
-	/// Type alias for a row of data values
+	// Type alias for a row of data values
 	using OTNRow = std::vector<OTNValue>;
 
 	/**
@@ -1721,6 +1726,58 @@ namespace OTN {
 
 #pragma endregion
 
+	namespace Detail {
+
+		// position in an OTN file, line/column are kept for error messages
+		struct FilePosition {
+			uint64_t offset = 0;
+			uint32_t line = 1;
+			uint32_t column = 1;
+		};
+
+		// ids of type or column names, defined with @defType / @defName
+		class DefTable {
+		public:
+			void Add(uint32_t id, const std::string& name);
+			void Clear();
+			bool Empty() const;
+			const std::string* FindName(uint32_t id) const;
+			std::optional<uint32_t> FindId(const std::string& name) const;
+			// all entries sorted by id
+			std::vector<std::pair<uint32_t, std::string>> GetEntries() const;
+
+		private:
+			std::unordered_map<uint32_t, std::string> m_names;
+			std::unordered_map<std::string, uint32_t> m_ids;
+		};
+
+		// everything in front of the @object block
+		struct FileHeaderInfo {
+			uint8_t version = VERSION;
+			DefTable defType;
+			DefTable defName;
+		};
+
+		// header of one object: Name[rowCount] { type/name, ... };
+		struct ObjectHeaderInfo {
+			std::string name;
+			size_t rowCount = 0;
+			std::vector<std::string> columnNames;
+			std::vector<OTNTypeDesc> columnTypes;
+		};
+
+		// formatting of written files
+		struct WriteOptions {
+			bool compact = false; // no spaces, line breaks and indentation
+		};
+
+		// defined in OTNFile.cpp
+		class CharSource;
+		class Tokenizer;
+		struct ReadSyntax;
+
+	}
+
 #pragma region OTNWriter
 
 	/**
@@ -1869,94 +1926,28 @@ namespace OTN {
 			static size_t HashValue(const OTNTypeDesc& colType, const OTNValue& value);
 		};
 
-		class BufferedIndentedStream {
-		public:
-			std::ofstream stream;
-			uint32_t indentLevel = 0;
-			std::string indentStr = "\t";
-			bool newLine = true;
-			std::string buffer;
-
-			static constexpr size_t BUFFER_SIZE = 64 * 1024; // 64 KB
-
-			BufferedIndentedStream() = default;
-			BufferedIndentedStream(const std::string& path) : stream(path, std::ios::binary) {}
-
-			void NewLine() { newLine = true; }
-			void IncreaseIndent() { ++indentLevel; }
-			void DecreaseIndent() { if (indentLevel > 0) --indentLevel; }
-
-			void Flush() {
-				if (!buffer.empty() && stream.is_open()) {
-					stream.write(buffer.data(), buffer.size());
-					buffer.clear();
-				}
-			}
-
-			template<typename T>
-			BufferedIndentedStream& operator<<(const T& value) {
-				if (newLine) {
-					for (uint32_t i = 0; i < indentLevel; ++i)
-						buffer += indentStr;
-					newLine = false;
-				}
-
-				buffer += OTNWriter::ToString(value);
-				if (buffer.size() >= BUFFER_SIZE)
-					Flush();
-
-				return *this;
-			}
-
-			// Fast overloads: avoid ToString temporary string allocation
-			BufferedIndentedStream& operator<<(char c) {
-				if (newLine) {
-					for (uint32_t i = 0; i < indentLevel; ++i)
-						buffer += indentStr;
-					newLine = false;
-				}
-				buffer += c;
-				if (buffer.size() >= BUFFER_SIZE) Flush();
-				return *this;
-			}
-			BufferedIndentedStream& operator<<(std::string_view sv) {
-				if (newLine) {
-					for (uint32_t i = 0; i < indentLevel; ++i)
-						buffer += indentStr;
-					newLine = false;
-				}
-				buffer.append(sv);
-				if (buffer.size() >= BUFFER_SIZE) Flush();
-				return *this;
-			}
-			BufferedIndentedStream& operator<<(const std::string& s) {
-				return operator<<(std::string_view(s));
-			}
-		};
-
 		struct WriterData {
 			bool created = false;
-			BufferedIndentedStream stream;
+			std::ofstream stream;  // target file, not open when writing to a string
+			std::string buffer;    // written text, flushed into stream when it gets large
 
 			std::unordered_map<OTNBaseType, uint32_t> typeUsage;// < map contains which data types are used and how often
 			std::unordered_map<std::string, SerializedObject> objects;
 
-			std::unordered_map<std::string, uint32_t> defType;// < used for optimaziations: Replaceses comman used type names with numbers
-			std::unordered_map<std::string, uint32_t> defName;// < used for optimaziations: Replaceses comman used names of Objects like position with numbers
+			Detail::FileHeaderInfo fileHeader;// < version and the @defType / @defName ids used for optimizations
 
 			void Reset() {
-				if (stream.stream.is_open())
-					stream.stream.close();
-				stream.buffer.clear();
-				stream.indentLevel = 0;
-				stream.newLine = true;
+				if (stream.is_open())
+					stream.close();
+				buffer.clear();
 				created = false;
 				typeUsage.clear();
 				objects.clear();
-				defType.clear();
-				defName.clear();
+				fileHeader = {};
 			}
 		};
+
+		static constexpr size_t FLUSH_SIZE = 64 * 1024; // 64 KB
 
 		bool m_useDefName = false;// < replaces often used names with number
 		bool m_useDefType = false;// < replaces often used type names with numbers
@@ -1980,71 +1971,15 @@ namespace OTN {
 		bool CreateDefName();
 
 		bool WriteHeader();
-		bool WriteHeaderDefType();
-		bool WriteHeaderDefName();
-
-		template<typename Func>
-		void WriteDirective(BufferedIndentedStream& stream, std::string_view keyword, Func&& func) {
-			stream << Syntax::KEYWORD_PREFIX_CHAR << keyword << Syntax::KEYWORD_ASSIGN_CHAR;
-			AddSpace(stream);
-			std::forward<Func>(func)();
-			stream << Syntax::STATEMENT_TERMINATOR;
-		}
-
-		void WriteHeaderDefHelper(BufferedIndentedStream& stream, const std::unordered_map<std::string, uint32_t>& map);
 		bool WriteBody();
-		bool WriteObjects(BufferedIndentedStream& stream, const std::unordered_map<std::string, SerializedObject>& objects);
-
-		void WriteOTNValueData(std::string& outStr, const OTNValue& data);
-
-		template<typename T>
-		void WriteData(std::string& outStr, const T& data);
-
-		void AddSpace(BufferedIndentedStream& stream) const;
-		void AddIndent(BufferedIndentedStream& stream, uint32_t level = 1) const;
-		void AddLineBreak(BufferedIndentedStream& stream) const;
-
-		void AddSpace(std::string& outStr) const;
-		void AddIndent(std::string& outStr, uint32_t level = 1) const;
+		// writes the buffer into the file if it is large enough (or force is set)
+		bool FlushBuffer(bool force);
+		Detail::WriteOptions GetWriteOptions() const;
 
 		void AddError(const std::string& error);
 
 		void CountObjectType(const SerializedObject& obj, std::unordered_map<OTNBaseType, uint32_t>& typeUsage);
 		static OTNTypeDesc DeduceColumnType(const OTNValue& value);
-
-		// Helper: convert basic types to string
-		template<typename T>
-		static std::string ToString(const T& val) {
-			if constexpr (std::is_same_v<T, std::string>) {
-				return val;
-			}
-			else if constexpr (std::is_same_v<T, std::string_view> ||
-				std::is_same_v<T, const char*>) {
-				return std::string(val);
-			}
-			else if constexpr (std::is_same_v<T, char>) {
-				return std::string(&val, 1); // single char -> string
-			}
-			else if constexpr (std::is_arithmetic_v<T>) {
-				return ToStringNumber<T>(val);
-			}
-			else {
-				return std::string(val);
-			}
-		}
-
-		template<typename T>
-		static std::string ToStringNumber(T value) {
-			char buf[64]{};
-			std::to_chars_result r;
-			if constexpr (std::is_floating_point_v<T>)
-				r = std::to_chars(buf, buf + sizeof(buf), value,
-					std::chars_format::general,
-					std::numeric_limits<T>::max_digits10);
-			else
-				r = std::to_chars(buf, buf + sizeof(buf), value);
-			return r.ec == std::errc{} ? std::string(buf, r.ptr) : std::string{};
-		}
 	};
 
 #pragma endregion
@@ -2057,24 +1992,31 @@ namespace OTN {
 	*
 	* Two complementary workflows:
 	*
-	* BeginObject / WriteRow / EndObject — for raw streaming of large primitive data.
-	* 
-	* The row count is not known upfront; the file header is patched via seekp on EndObject.
-	* Object references must be written as explicit integer indices by the user.
-	* Use GetWrittenRowCount() to determine the next available index.
+	* BeginObject / WriteRow / EndObject — for raw streaming of large data.
+	*
+	* Values of custom types (ToOTNDataType) or OTNObjects are written as rows of their own
+	* object and referenced by index. Integer indices can be written directly as well,
+	* use GetWrittenRowCount() to determine the next available index.
 	*
 	* AppendObject:
-	* 
+	*
 	* for OTNObject instances that may contain nested custom objects.
-	* Recursively writes all referenced sub-objects (depth-first) before the parent,
-	* so the file is always in valid OTN format.
+	* All referenced sub-objects are written as well.
 	*
 	* notes:
-	* 
+	*
+	* - All rows are collected in a temporary file ("<name>" + TEMP_FILE_EXTENSION next to the target file).
+	*   The target file is written on Close(), every object becomes one block with its final row count.
+	*
+	* - The same object name can be used multiple times (BeginObject, AppendObject, sub-objects),
+	*   the rows are appended to the same block. Column names and types have to match.
+	*
+	* - The same sub-object instance is written only once, copies of values are written as new rows.
+	*
 	* - DefType/DefName optimizations are not applied (full type names are written).
-	* 
+	*
 	* - BeginObject/WriteRow and AppendObject may be freely intermixed.
-	* 
+	*
 	* - Files are fully compatible with OTNReader and OTNStreamReader.
 	*/
 	class OTNStreamWriter {
@@ -2093,12 +2035,14 @@ namespace OTN {
 		* @brief Begin writing an object — schema given as two string vectors.
 		*
 		* Column types follow the same syntax as OTNObject::SetTypes():
-		* 
+		*
 		* "int", "float[]", "String", "MyObjectName", "MyObjectName[]", etc.
 		*
 		* For columns that reference another OTN object use the object's name as the
-		* type string (e.g. "WeaponStats") and write integer row indices in WriteRow.
-		* Use GetWrittenRowCount() to obtain the next free index.
+		* type string (e.g. "WeaponStats") and write the values (custom types, OTNObjects)
+		* or integer row indices in WriteRow.
+		*
+		* If the object name was already used, the rows are appended to it. The schema has to match.
 		*
 		* @return True on success.
 		*/
@@ -2124,7 +2068,7 @@ namespace OTN {
 			std::enable_if_t<(std::is_convertible_v<std::decay_t<Cols>, OTNColumnDef> && ...), int> = 0>
 		bool BeginObject(const std::string& name, Cols&&... cols) {
 			std::vector<std::string> names, types;
-			
+
 			names.reserve(sizeof...(Cols));
 			types.reserve(sizeof...(Cols));
 
@@ -2140,7 +2084,8 @@ namespace OTN {
 		* @brief Write one data row using variadic arguments.
 		*
 		* Values must match the column schema set in BeginObject.
-		* For columns referencing other objects, pass the integer row index directly.
+		* For columns referencing other objects, pass the value (custom type, OTNObject)
+		* or the integer row index.
 		*
 		* @return True on success.
 		*/
@@ -2155,15 +2100,15 @@ namespace OTN {
 			bool rowValid = true;
 
 			auto addValue = [&](auto&& v) {
-				if (!rowValid) 
+				if (!rowValid)
 					return;
-				
+
 				using DT = std::decay_t<decltype(v)>;
 				Detail::OTNDataType<DT> dt(std::forward<decltype(v)>(v));
-				if (!dt.m_valid) { 
-					AddError(dt.m_error); 
-					rowValid = false; 
-					return; 
+				if (!dt.m_valid) {
+					AddError(dt.m_error);
+					rowValid = false;
+					return;
 				}
 
 				row.emplace_back(std::move(dt.m_value));
@@ -2171,7 +2116,7 @@ namespace OTN {
 
 			(addValue(std::forward<Args>(args)), ...);
 
-			if (!rowValid) 
+			if (!rowValid)
 				return false;
 			return WriteRowInternal(row);
 		}
@@ -2183,7 +2128,7 @@ namespace OTN {
 		bool WriteRowList(const OTNRow& row);
 
 		/**
-		* @brief Finish the current object and patch its row count into the file.
+		* @brief Finish the current object. The rows stay in the temporary file until Close().
 		* @return True on success.
 		*/
 		bool EndObject();
@@ -2193,14 +2138,10 @@ namespace OTN {
 		/**
 		* @brief Serialize a complete OTNObject (with all nested objects) in one call.
 		*
-		* Works like OTNWriter::AppendObject but writes immediately, keeping only the
-		* current OTNObject in RAM at one time.
-		*
 		* Nested objects (values of type OBJECT / custom types serialised via
-		* ToOTNDataType) are written depth-first before the parent, so the file is
-		* always valid.  Repeated identical object pointers are deduplicated: the same
-		* sub-object instance is written only once, and all references to it share
-		* the same row index.
+		* ToOTNDataType) are written as rows of their own object. Repeated identical
+		* object pointers are deduplicated: the same sub-object instance is written
+		* only once, and all references to it share the same row index.
 		*
 		* @code
 		* // Custom type is serialized automatically
@@ -2220,7 +2161,7 @@ namespace OTN {
 		*
 		* Use this to build integer indices for parent objects that reference sub-objects
 		* written earlier:
-		* 
+		*
 		* @code
 		* size_t idx = w.GetWrittenRowCount("WeaponStats"); // next free index
 		* w.BeginObject("WeaponStats",...);
@@ -2234,7 +2175,7 @@ namespace OTN {
 		// ---- Lifecycle -----------------------------------------------------------
 
 		/**
-		* @brief Finalize and close the file. Calls EndObject() if an object is open.
+		* @brief Writes all objects into the file and closes it. Calls EndObject() if an object is open.
 		* @return True on success.
 		*/
 		bool Close();
@@ -2244,72 +2185,102 @@ namespace OTN {
 		bool TryGetError(std::string& outError) const;
 
 	private:
-		static constexpr int COUNT_FIELD_WIDTH = 9;
+		static constexpr size_t COPY_BUFFER_SIZE = 64 * 1024; // 64 KB
+		static constexpr size_t NO_BLOCK = static_cast<size_t>(-1);
 
-		std::fstream m_file;
-		bool m_valid = true;
-		bool m_fileOpen = false;
-		bool m_objectOpen = false;
-		bool m_blockOpen = false;
+		/// part of the temporary file that contains rows of one object
+		struct RowRange {
+			uint64_t offset = 0;
+			uint64_t length = 0;
+		};
 
-		std::string m_currentObjectName; ///< name of the object open via BeginObject
-		std::streampos m_countPos{};
-		size_t m_rowCount = 0;
-		size_t m_columnCount = 0;
-		std::vector<OTNTypeDesc> m_currentTypes;
-		std::string m_error;
-
-		/// Rows written per object name (updated by both AppendObject and EndObject).
-		std::unordered_map<std::string, size_t> m_writtenRowCounts;
+		/// one object of the target file, its rows can be spread over the temporary file
+		struct ObjectBlock {
+			Detail::ObjectHeaderInfo header; // rowCount is the number of rows written so far
+			std::vector<RowRange> ranges;
+		};
 
 		struct WrittenObject {
-			std::weak_ptr<OTNObject> owner; ///< used to detect if the address was reused by a new object
+			std::weak_ptr<OTNObject> owner; // used to detect if the address was reused by a new object
 			size_t index = 0;
 		};
 
-		/// Maps raw OTNObject pointer of sub-objects → first row index in the file, for deduplication.
-		std::unordered_map<const OTNObject*, WrittenObject> m_objPtrToIndex;
+		Detail::WriteOptions m_writeOptions;
+		Detail::FileHeaderInfo m_fileHeader;
+		std::ofstream m_file;
+		OTNFilePath m_filePath;
+		bool m_valid = true;
+		bool m_fileOpen = false;
+		bool m_objectOpen = false;
 
-		// ---- helpers called from AppendObject ------------------------------------
+		std::ofstream m_rowFile;      // temporary file for the rows of all objects
+		OTNFilePath m_rowFilePath;
+		uint64_t m_rowFileSize = 0;
+
+		std::vector<ObjectBlock> m_blocks; // in order of the first use
+		std::unordered_map<std::string, size_t> m_blockIndex;
+		size_t m_currentBlock = NO_BLOCK; // object open via BeginObject
+		std::string m_error;
+
+		// Maps raw OTNObject pointer of sub-objects → first row index in its block, for deduplication.
+		std::unordered_map<const OTNObject*, WrittenObject> m_objPtrToIndex;
+		// sub-objects whose rows are currently converted, used to detect cyclic objects
+		std::unordered_set<const OTNObject*> m_objectsInProgress;
 
 		/**
-		* @brief Returns the first row index of an already written (or index assigned) sub-object.
+		* @brief Returns the first row index of an already written sub-object.
 		*/
 		std::optional<size_t> FindWrittenIndex(const Detail::OTNObjectPtr& ptr) const;
 
 		/**
-		* @brief Appends the row indices of a sub-object to outIndices.
+		* @brief Appends the row indices of a written sub-object to outIndices.
 		*
 		* Objects build from T are referenced by one index, native objects by one index per row.
 		*/
-		void AppendObjectIndices(const Detail::OTNObjectPtr& ptr, std::vector<size_t>& outIndices) const;
+		static void AppendObjectIndices(const Detail::OTNObjectPtr& ptr, size_t first, std::vector<size_t>& outIndices);
 
 		/**
-		* @brief Convert a single OTNValue for stream output.
+		* @brief Writes a sub-object (if not written yet) and returns its row indices.
+		*/
+		bool WriteSubObject(const Detail::OTNObjectPtr& ptr, std::vector<size_t>& outIndices);
+
+		/**
+		* @brief Writes all rows of an object into its block.
+		*
+		* Sub-objects are written first, so the rows of the object stay together.
+		*/
+		bool WriteObjectRows(const OTNObject& obj, size_t& outFirstRow);
+
+		/**
+		* @brief Convert a single OTNValue for stream output, sub-objects are written.
 		*
 		* OTNObjectPtr   → integer index, or [idx, ...] if colType is a list
 		* LIST of OBJECT → [idx, ...]     (list of integer refs)
 		* Everything else → unchanged.
 		*/
-		OTNValue ConvertValueForStream(const OTNValue& val, const OTNTypeDesc& colType) const;
-
-		void ResetFileState();
+		bool ConvertValue(const OTNValue& val, const OTNTypeDesc& colType, OTNValue& outValue);
+		bool ConvertRow(const OTNRow& row, const std::vector<OTNTypeDesc>& colTypes, OTNRow& outRow);
 
 		/**
-		* @brief Write a header block for an object whose row count is already known.
-		*        Used by AppendObject (no seekp needed).
+		* @brief Returns the block of the object, creates it if the name is new.
+		*
+		* Fails if the name is already used with other column names or types.
 		*/
-		bool WriteObjectHeaderKnown(
-			const std::string& name,
-			size_t rowCount,
-			const std::vector<std::string>& colNames,
-			const std::vector<OTNTypeDesc>& colTypes);
+		bool GetBlock(const std::string& name, const std::vector<std::string>& colNames,
+			const std::vector<OTNTypeDesc>& colTypes, size_t& outBlock);
 
-		// ---- helpers called from BeginObject / WriteRow --------------------------
+		// appends written rows to the temporary file and the block
+		bool AppendRows(size_t block, const std::string& rows, size_t rowCount);
 
-		bool EnsureObjectBlock();
+		// writes all blocks into the target file
+		bool WriteFile();
+		bool CopyRanges(const ObjectBlock& block, std::ifstream& in);
+
+		void ResetFileState();
 		bool CheckRowPreconditions(size_t argCount);
 		bool WriteRowInternal(const OTNRow& row);
+		// closes and deletes the temporary row file
+		void DiscardRowFile();
 		void AddError(const std::string& error);
 	};
 
@@ -2403,242 +2374,29 @@ namespace OTN {
 		bool TryGetError(std::string& outError) const;
 
 	private:
-		enum class TokenType {
-			UNKNOWN = 0,
-			KEYWORD_PREFIX,	// @
-			IDENTIFIER,		// object, version, Weapon
-			NUMBER,			// 123
-			STRING,			// "Metal"
-			MINUS,			// -
-			COLON,          // :
-			EQUALS,         // =
-			COMMA,          // ,
-			SLASH,			// /
-			SEMICOLON,		// ;
-			BLOCK_BEGIN,	// {
-			BLOCK_END,		// }
-			LIST_BEGIN,		// [
-			LIST_END,		// ]
-			REF_BEGIN,		// <
-			REF_END,		// >
-			END_OF_FILE
-		};
-
-		enum class TokenKeyword {
-			UNKNOWN = 0,
-			VERSION,
-			DEF_TYPE,
-			DEF_NAME,
-			OBJECT
-		};
-
 		class ReaderData {
 		public:
-			ReaderData() = default;
-			~ReaderData() = default;
-
-			std::ifstream stream;
-
 			uint8_t version = 0;
 			std::unordered_map<std::string, OTNObject> objects;
 
-			std::unordered_map<uint32_t, std::string> defType;// < used for optimaziations: Replaceses comman used type names with numbers
-			std::unordered_map<uint32_t, std::string> defName;// < used for optimaziations: Replaceses comman used names of Objects like position with numbers
-
 			void Reset() {
-				if (stream.is_open())
-					stream.close();
-
 				version = 0;
 				objects.clear();
-				defType.clear();
-				defName.clear();
 			}
 		};
 
-		class Token {
-		public:
-			TokenType type = TokenType::UNKNOWN;
-			std::string text;
-			uint32_t line = 0;
-			uint32_t column = 0;
-
-			Token() = default;
-			Token(TokenType t, std::string str, uint32_t l, uint32_t c)
-				: type(t), text(std::move(str)), line(l), column(c) {
-			}
-			Token(TokenType t, uint32_t l, uint32_t c)
-				: type(t), line(l), column(c) {
-			}
-		};
-
-		class OTNTokenizer {
-		public:
-			explicit OTNTokenizer(std::string_view src)
-				: m_cur(src.data()), m_end(src.data() + src.size()) {
-			}
-
-			bool Tokenize();
-			const std::vector<Token>& GetTokens() const;
-			std::string GetError() const;
-
-		private:
-			const char* m_cur;
-			const char* m_end;
-			std::vector<Token> m_tokens;
-			std::string m_error;
-			bool m_valid = false;
-
-			uint32_t m_line = 1;
-			uint32_t m_column = 1;
-
-			// Fast cursor helpers (replace istream::get/unget/peek)
-
-			bool Get(char& c);
-			void Unget();
-			int Peek() const;
-			bool Eof() const;
-
-			bool ProcessChar(char c);
-
-			bool AddToken(TokenType type);
-			bool AddToken(TokenType type, const std::string& text);
-			bool AddToken(TokenType type, uint32_t line, uint32_t column);
-			bool AddToken(TokenType type, const std::string& text, uint32_t line, uint32_t column);
-
-			bool ReadString();
-			bool ReadNumber();
-			bool ReadIdentifier();
-
-			void Advance(char c);
-			void AddError(const std::string& msg);
-		};
-
-#pragma region ReaderV_Num
-
-		class OTNReaderV1 {
-		public:
-			explicit OTNReaderV1(ReaderData& data, const std::vector<Token>& tokens)
-				: m_data(data), m_tokens(tokens) {
-			}
-
-			bool Read();
-			std::string GetError() const;
-			bool IsValid() const;
-
-		private:
-			OTNReader::ReaderData& m_data;
-			const std::vector<Token>& m_tokens;
-			std::string m_error;
-			bool m_valid = true;
-
-			size_t m_pos = 0;
-
-			bool ParseTopLevel();
-			bool ParseDefType();
-			bool ParseDefName();
-			bool ParseObjectBlock();
-
-			bool ParseObject();
-			bool ParseHeaderBlock(OTNObject& obj);
-			bool ParseDataRows(OTNObject& obj, size_t rowCount);
-
-			bool ResolveOTNObjectRefs();
-			bool ResolveObjectRefsInObject(const std::string& objectName, OTNObject& object);
-			bool ResolveObjectRefsInRow(const std::string& ownerObjectName, const std::vector<size_t>& refColumns, OTNRow& row);
-			bool ResolveValueRecursive(const std::string& ownerObjectName, OTNValue& value);
-			bool ResolveSingleObjectRef(const std::string& ownerObjectName, OTNValue& value);
-			const OTNObject* GetOTNObject(const std::string& objName) const;
-			std::vector<size_t> GetObjectIndieces(const OTNObject& object);
-
-			bool ResolveIdentifier(const Token& token, const std::unordered_map<uint32_t, std::string>& map, std::string& out);
-
-			const Token& Peek();
-			const Token& Next();
-			bool NextIf(TokenType type);
-			bool Match(TokenType type);
-			Token Expect(TokenType type);
-			bool IsAtEnd();
-
-			// gets the token for a type/object
-			void GetTypeToken(Token& outToken);
-			bool IsListToken(uint32_t& outListDepth);
-			OTNValue TokenToOTNValue(const Token& token, const OTNTypeDesc& type);
-			OTNValue TokenToAnyPrimitiveOTNValue(const Token& token);
-			OTNValue TokenToListOTNValue(const Token& token, const OTNTypeDesc& type);
-			OTNValue TokenToObjectOTNValue(const Token& token, const OTNTypeDesc& type);
-			OTNValue TokenToPrimitiveOTNValue(const Token& token, OTNBaseType type);
-
-			template<typename T>
-			T ParseNumericToken(const Token& token, OTNReaderV1* reader) {
-				if (token.type != TokenType::NUMBER && token.type != TokenType::MINUS) {
-					reader->AddError(token, "Expected numeric literal");
-					return T{};
-				}
-
-				std::string text = token.text;
-				T value = T{};
-
-				try {
-					// Handle leading minus
-					if (token.type == TokenType::MINUS) {
-						// Expect next token to be a number
-						Token next = Next();
-						if (next.type != TokenType::NUMBER) {
-							reader->AddError(next, "Expected number after minus");
-							return T{};
-						}
-						text = "-" + next.text;
-
-						if constexpr (std::is_unsigned_v<T>) {
-							reader->AddError(token, "Negative value for unsigned type");
-							return T{};
-						}
-					}
-
-					if constexpr (std::is_same_v<T, int>) {
-						value = std::stoi(text);
-					}
-					else if constexpr (std::is_same_v<T, int64_t>) {
-						value = std::stoll(text);
-					}
-					else if constexpr (std::is_same_v<T, uint64_t>) {
-						value = std::stoull(text);
-					}
-					else if constexpr (std::is_same_v<T, float>) {
-						value = std::stof(text);
-					}
-					else if constexpr (std::is_same_v<T, double>) {
-						value = std::stod(text);
-					}
-					else {
-						reader->AddError(token, "Unsupported numeric type");
-						return T{};
-					}
-
-					return T(value);
-				}
-				catch (const std::exception& e) {
-					reader->AddError(token, std::string("Invalid numeric literal: ") + e.what());
-					return T{};
-				}
-			}
-
-			TokenKeyword ResolveKeyword(const Token& token);
-			std::string ToString(TokenType type);
-			bool AddError(const Token& token, const std::string error);
-			bool AddError(const std::string error);
-		};
-
-#pragma endregion
+		// object rows that are currently resolved, used to detect cyclic references
+		using RefStack = std::vector<std::pair<std::string, size_t>>;
 
 		std::string m_error;
 		bool m_valid = true;
 		ReaderData m_readerData;
 
-		bool OpenFileStream(const OTNFilePath& path);
 		bool ReadData(std::string_view src, ReaderData& data);
-		bool SetDataVersion(const std::vector<Token>& tokens, ReaderData& data);
+
+		// replaces the Ref<X> values of all objects by the referenced rows
+		bool ResolveObjectRefs(ReaderData& data);
+		bool ResolveValue(ReaderData& data, const std::string& ownerObjectName, OTNValue& value, RefStack& stack);
 
 		void AddError(const std::string& error);
 	};
@@ -2652,8 +2410,10 @@ namespace OTN {
 	* @brief Streaming reader for large OTN files — reads objects and rows one at a time.
 	*
 	* Unlike OTNReader, the whole file is never loaded into RAM.
-	* Navigate sequentially with NextObject() / ReadRow().
-	* O(1) RAM per row regardless of file size.
+	* On Open() the file is scanned once to build a small index (objects, columns,
+	* row counts and the file position of every ROW_CHECKPOINT_INTERVAL-th row).
+	* Navigate sequentially with NextObject() / ReadRow(), or read any object or row
+	* directly with ReadObject() / ReadObjectRow().
 	*
 	* Usage:
 	* @code
@@ -2670,20 +2430,23 @@ namespace OTN {
 	* @endcode
 	*
 	* notes:
-	* 
-	* - Objects must be read sequentially (no random access).
-	* 
+	*
 	* - Calling NextObject() without reading all rows auto-skips remaining rows.
-	* 
-	* - Object references are returned as Detail::OTNObjectRef (unresolved).
+	*
+	* - Object references are resolved to OTNObjects (one row each) by default,
+	*   see SetResolveObjectRefs(). Unresolved references are Detail::OTNObjectRef values.
+	*
+	* - Before every read operation the file size and modification time are checked.
+	*   If the file was changed since the scan, it is scanned again automatically and
+	*   the current read position (object name + row) is restored.
 	*/
 	class OTNStreamReader {
 	public:
-		OTNStreamReader() = default;
-		~OTNStreamReader() = default;
+		OTNStreamReader();
+		~OTNStreamReader();
 
 		/**
-		* @brief Open an OTN file for streaming reads.
+		* @brief Open an OTN file for streaming reads and scan its objects.
 		* @param path File path (extension .otn added automatically if missing).
 		* @return True on success.
 		*/
@@ -2713,9 +2476,9 @@ namespace OTN {
 		size_t GetRemainingRowCount() const;
 
 		/**
-		* @brief Read the next row of the current object. Of after the last row no objects remain. 
+		* @brief Read the next row of the current object.
 		* After the last row use NextObject or HasMoreObjects
-		* 
+		*
 		* @param outRow Output row.
 		* @return True if a row was read, false when all rows are consumed.
 		*/
@@ -2733,6 +2496,42 @@ namespace OTN {
 		*/
 		bool SkipCurrentObject();
 
+		/**
+		* @brief Returns the names of all objects in the file (in file order).
+		*/
+		std::vector<std::string> GetObjectNames();
+
+		/**
+		* @brief Read a single row of any object, independent of the sequential read position.
+		* @param objectName Name of the object.
+		* @param rowIndex Row index (0-based).
+		* @return OTNObject with exactly this row, std::nullopt if the object or row does not exist or on error.
+		*/
+		std::optional<OTNObject> ReadObjectRow(const std::string& objectName, size_t rowIndex);
+
+		/**
+		* @brief Read a complete object with all rows into RAM.
+		*
+		* note:
+		*
+		* - Only meant for small objects, use NextObject() / ReadRow() for large ones.
+		*
+		* @param objectName Name of the object.
+		* @return The object, std::nullopt if it does not exist or on error.
+		*/
+		std::optional<OTNObject> ReadObject(const std::string& objectName);
+
+		/**
+		* @brief Enable or disable resolving object references (default: enabled).
+		*
+		* If enabled, values of object columns are loaded as OTNObject (recursively),
+		* so they can be read with GetValue<MyType>(). If disabled they stay Detail::OTNObjectRef.
+		*/
+		void SetResolveObjectRefs(bool value);
+
+		/** @return True if object references are resolved. */
+		bool GetResolveObjectRefs() const;
+
 		/** @return OTN format version (available after Open()). */
 		uint8_t GetVersion() const;
 
@@ -2741,120 +2540,64 @@ namespace OTN {
 		bool TryGetError(std::string& outError) const;
 
 	private:
-		// ---- token types reused inside the streaming reader ----
-		enum class SRTok {
-			UNKNOWN = 0,
-			IDENTIFIER, 
-			NUMBER, 
-			STRING,
-			MINUS, 
-			COLON, 
-			EQUALS, 
-			COMMA, 
-			SLASH, 
-			SEMICOLON,
-			KEYWORD_PREFIX,
-			BLOCK_BEGIN, 
-			BLOCK_END,
-			LIST_BEGIN, 
-			LIST_END,
-			REF_BEGIN, 
-			REF_END,
-			END_OF_FILE
+		// every n-th row the file position is stored in the index
+		static constexpr size_t ROW_CHECKPOINT_INTERVAL = 1024;
+		static constexpr size_t NO_OBJECT = static_cast<size_t>(-1);
+
+		// index entry of one object, created by Scan()
+		struct ObjectInfo {
+			Detail::ObjectHeaderInfo header;
+			// position of row 0, ROW_CHECKPOINT_INTERVAL, 2 * ROW_CHECKPOINT_INTERVAL, ...
+			std::vector<Detail::FilePosition> rowCheckpoints;
 		};
 
-		struct SRToken {
-			SRTok type = SRTok::UNKNOWN;
-			std::string text;
-			uint32_t line = 0, column = 0;
-
-			SRToken() = default;
-			SRToken(SRTok t, std::string s, uint32_t l, uint32_t c)
-				: type(t), text(std::move(s)), line(l), column(c) {
-			}
-			SRToken(SRTok t, uint32_t l, uint32_t c)
-				: type(t), line(l), column(c) {
-			}
+		// object row currently being resolved, used to detect cyclic references
+		struct RowKey {
+			std::string objectName;
+			size_t row = 0;
 		};
 
-		// Incremental tokenizer — returns one token at a time from the file stream.
-		class StreamTokenizer {
-		public:
-			explicit StreamTokenizer(std::string_view src)
-				: m_cur(src.data()), m_end(src.data() + src.size()) {
-			}
+		std::unique_ptr<Detail::CharSource> m_source;
+		std::unique_ptr<Detail::Tokenizer> m_tok;
+		const Detail::ReadSyntax* m_syntax = nullptr;
+		Detail::FileHeaderInfo m_fileHeader;
 
-			SRToken Next();
-			const SRToken& Peek();
-			bool NextIf(SRTok type);
-			bool IsValid() const { return m_valid; }
-			std::string GetError() const { return m_error; }
+		OTNFilePath m_path;
+		uintmax_t m_fileSize = 0;
+		std::filesystem::file_time_type m_fileTime{};
 
-		private:
-			const char* m_cur;
-			const char* m_end;
-			std::optional<SRToken> m_peeked;
-			bool m_valid = true;
-			std::string m_error;
-			uint32_t m_line = 1, m_column = 1;
-
-			bool Get(char& c);
-			void Unget();
-			int Peek1() const;
-			bool Eof() const;
-
-			SRToken ReadNextRaw();
-			SRToken ReadString();
-			SRToken ReadNumber();
-			SRToken ReadIdentifier();
-			void SkipWhitespace();
-			void Advance(char c);
-			void AddError(const std::string& msg);
-		};
-
-		std::string m_fileBuffer; // file content slurped on Open()
-		std::unique_ptr<StreamTokenizer> m_tok;
+		std::vector<ObjectInfo> m_objects;
+		std::unordered_map<std::string, size_t> m_objectIndex;
 
 		bool m_valid = true;
-		bool m_atEnd = false;
-		uint8_t m_version = 0;
+		bool m_resolveObjectRefs = true;
 		std::string m_error;
 
+		// sequential read position
+		size_t m_currentObject = NO_OBJECT;
+		size_t m_currentRow = 0;
 		std::string m_currentName;
 		std::vector<std::string> m_columnNames;
 		std::vector<OTNTypeDesc> m_columnTypes;
 		size_t m_remainingRows = 0;
 
-		std::unordered_map<uint32_t, std::string> m_defType;
-		std::unordered_map<uint32_t, std::string> m_defName;
+		// ---- index ----
+		bool Scan();
+		bool EnsureUpToDate();
+		bool ReadFileStamp(uintmax_t& outSize, std::filesystem::file_time_type& outTime) const;
+		const ObjectInfo* FindObject(const std::string& name) const;
+		void SetCurrentObject(size_t objectIndex, size_t row);
+		bool SeekToRow(const ObjectInfo& info, size_t row);
+		bool ReadRowValues(const ObjectInfo& info, OTNRow& outRow);
 
-		// ---- parsing helpers ----
-		bool ParseFileHeader();
-		bool ParseVersion();
-		bool ParseDefType();
-		bool ParseDefName();
-		bool EnterObjectBlock();
+		// ---- object references ----
+		std::optional<OTNObject> LoadObjectRow(const ObjectInfo& info, size_t row, std::vector<RowKey>& stack);
+		bool ResolveRow(OTNRow& row, std::vector<RowKey>& stack);
+		bool ResolveValue(OTNValue& value, std::vector<RowKey>& stack);
 
-		bool ParseObjectHeader();
-
-		OTNValue ReadValue(const OTNTypeDesc& typeDesc);
-		OTNValue ReadAnyValue();
-		OTNValue ReadList(const OTNTypeDesc& elemTypeDesc);
-		OTNValue ReadPrimitive(OTNBaseType baseType);
-
-		bool SkipUntilSemicolon();
-		bool MoreRemainingObjects();
-
-		SRToken NextTok();
-		const SRToken& PeekTok();
-		bool NextIfTok(SRTok t);
-		bool ExpectTok(SRTok t, SRToken& out);
-		bool ExpectIdentifier(const std::string& text);
-
-		OTNTypeDesc ParseTypeString(const std::string& typeName, uint32_t listDepth) const;
-
+		// adds the error of the tokenizer, always returns false
+		bool TokenizerFailed();
 		void AddError(const std::string& msg);
-		void AddTokenError(const SRToken& tok, const std::string& msg);
 	};
 
 #pragma endregion
