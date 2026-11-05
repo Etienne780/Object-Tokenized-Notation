@@ -35,30 +35,6 @@ namespace OTN {
 		return it != table.end() ? it->second : OTNBaseType::UNKNOWN;
 	}
 
-	constexpr std::string_view OTNValueTypeToString(OTNBaseType type) noexcept {
-		namespace SynTypes = Syntax::Types;
-
-		switch (type) {
-		case OTN::OTNBaseType::INT: 		return SynTypes::INT;
-		case OTN::OTNBaseType::INT64:   	return SynTypes::INT64;
-		case OTN::OTNBaseType::UINT64:     	return SynTypes::UINT64;
-		case OTN::OTNBaseType::FLOAT:   	return SynTypes::FLOAT;
-		case OTN::OTNBaseType::DOUBLE:  	return SynTypes::DOUBLE;
-		case OTN::OTNBaseType::BOOL:    	return SynTypes::BOOL;
-		case OTN::OTNBaseType::STRING:  	return SynTypes::STRING;
-		case OTN::OTNBaseType::OBJECT:  	return SynTypes::OBJECT;
-		case OTN::OTNBaseType::OBJECT_REF: 	return SynTypes::OBJECT_REF;
-		case OTN::OTNBaseType::LIST:    	return SynTypes::LIST;
-		case OTN::OTNBaseType::ANY:    		return SynTypes::ANY;
-		case OTN::OTNBaseType::UNKNOWN:
-		default:                         	return "UNKNOWN";
-		}
-	}
-
-	constexpr uint32_t OTNValueTypeCharLength(OTNBaseType type) noexcept {
-		return static_cast<uint32_t>(OTNValueTypeToString(type).size());
-	}
-
 	std::string TypeDescToString(const OTNTypeDesc& type) {
 		std::string result;
 
@@ -201,13 +177,16 @@ namespace OTN {
 		// File extension check
 		if (finalPath.has_extension()) {
 			std::string ext = PathToString(finalPath.extension());
-			std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+			std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
+				return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+			});
 
 			if (ext != FILE_EXTENSION) {
 				std::string validExt{ FILE_EXTENSION };
 				std::string validExtUpper = validExt;
-				std::transform(validExtUpper.begin(), validExtUpper.end(),
-					validExtUpper.begin(), ::toupper);
+				std::transform(validExtUpper.begin(), validExtUpper.end(), validExtUpper.begin(), [](char c) {
+					return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
+				});
 
 				errorOut = "File extension '" + ext +
 					"' is invalid, valid extensions are " +
@@ -1448,12 +1427,25 @@ namespace OTN {
 				case OTNBaseType::UINT64:
 					AppendNumber(out, std::get<uint64_t>(value.value));
 					return true;
-				case OTNBaseType::FLOAT:
-					AppendNumber(out, std::get<float>(value.value));
+				case OTNBaseType::FLOAT: {
+					const float number = std::get<float>(value.value);
+					// the syntax has no literal for NaN and infinity
+					if (!std::isfinite(number)) {
+						error = "NaN or infinite float values cannot be written";
+						return false;
+					}
+					AppendNumber(out, number);
 					return true;
-				case OTNBaseType::DOUBLE:
-					AppendNumber(out, std::get<double>(value.value));
+				}
+				case OTNBaseType::DOUBLE: {
+					const double number = std::get<double>(value.value);
+					if (!std::isfinite(number)) {
+						error = "NaN or infinite double values cannot be written";
+						return false;
+					}
+					AppendNumber(out, number);
 					return true;
+				}
 				case OTNBaseType::BOOL:
 					out.append(std::get<bool>(value.value) ? Keyword::TRUE_KW : Keyword::FALSE_KW);
 					return true;
@@ -1642,6 +1634,165 @@ namespace OTN {
 				return true;
 			}
 
+			static bool IsInteger(OTNBaseType type) {
+				return type == OTNBaseType::INT || type == OTNBaseType::INT64 || type == OTNBaseType::UINT64;
+			}
+
+			static bool IsNumber(OTNBaseType type) {
+				return IsInteger(type) || type == OTNBaseType::FLOAT || type == OTNBaseType::DOUBLE;
+			}
+
+			// true if the reader can read the written value as value of the column type.
+			// Values of object columns are row indices at this point, objects in 'any' columns references.
+			static bool CheckValueType(const OTNValue& value, const OTNTypeDesc& type, std::string& error) {
+				auto mismatch = [&]() {
+					error = "value of type '" + TypeDescToString(DeduceTypeFromValue(value)) +
+						"' does not match the column type '" + TypeDescToString(type) + "'";
+					return false;
+				};
+
+				if (type.listDepth > 0 || (type.baseType == OTNBaseType::ANY && value.type == OTNBaseType::LIST)) {
+					if (value.type != OTNBaseType::LIST)
+						return mismatch();
+
+					const OTNArrayPtr& list = std::get<OTNArrayPtr>(value.value);
+					if (!list)
+						return true;
+
+					OTNTypeDesc elemType = type;
+					if (elemType.listDepth > 0)
+						elemType.listDepth--;
+
+					for (const OTNValue& elem : list->values) {
+						if (!CheckValueType(elem, elemType, error))
+							return false;
+					}
+					return true;
+				}
+
+				switch (type.baseType) {
+				case OTNBaseType::ANY:
+					if (IsNumber(value.type) || value.type == OTNBaseType::BOOL ||
+						value.type == OTNBaseType::STRING || value.type == OTNBaseType::OBJECT_REF)
+						return true;
+					return mismatch();
+
+				case OTNBaseType::OBJECT: {
+					// row index
+					std::optional<size_t> index = IsInteger(value.type) ? OTNConvertNumber<size_t>(value.value) : std::nullopt;
+					if (index)
+						return true;
+					return mismatch();
+				}
+
+				case OTNBaseType::INT:
+					if (IsInteger(value.type) && OTNConvertNumber<int>(value.value))
+						return true;
+					return mismatch();
+
+				case OTNBaseType::INT64:
+					if (IsInteger(value.type) && OTNConvertNumber<int64_t>(value.value))
+						return true;
+					return mismatch();
+
+				case OTNBaseType::UINT64:
+					if (IsInteger(value.type) && OTNConvertNumber<uint64_t>(value.value))
+						return true;
+					return mismatch();
+
+				case OTNBaseType::FLOAT:
+					if (!IsNumber(value.type))
+						return mismatch();
+
+					if (value.type == OTNBaseType::DOUBLE) {
+						// a double outside of the float range cannot be read as float
+						const double number = std::abs(std::get<double>(value.value));
+						if (number > std::numeric_limits<float>::max() ||
+							(number != 0.0 && number < std::numeric_limits<float>::denorm_min()))
+						{
+							error = "double value " + std::to_string(std::get<double>(value.value)) +
+								" is outside of the range of the column type 'float'";
+							return false;
+						}
+					}
+					return true;
+
+				case OTNBaseType::DOUBLE:
+					if (IsNumber(value.type))
+						return true;
+					return mismatch();
+
+				case OTNBaseType::BOOL:
+				case OTNBaseType::STRING:
+					if (value.type == type.baseType)
+						return true;
+					return mismatch();
+
+				default:
+					// columns without type are reported when the header is written
+					return true;
+				}
+			}
+
+			// checks every value of a row against the columns of the object
+			static bool CheckRowTypes(const OTNRow& row, const ObjectHeaderInfo& info, std::string& error) {
+				if (row.size() != info.columnTypes.size()) {
+					error = "row has " + std::to_string(row.size()) + " values, but the object '" + info.name +
+						"' has " + std::to_string(info.columnTypes.size()) + " columns";
+					return false;
+				}
+
+				for (size_t c = 0; c < row.size(); ++c) {
+					if (!CheckValueType(row[c], info.columnTypes[c], error)) {
+						const std::string columnName = c < info.columnNames.size() ? info.columnNames[c] : std::to_string(c);
+						error += " (column '" + columnName + "' of object '" + info.name + "')";
+						return false;
+					}
+				}
+				return true;
+			}
+
+		}
+
+		// object, column and type names: letters, digits, '_' and UTF-8 chars, not starting with a digit.
+		// Has to match the identifiers of the Tokenizer, otherwise the written file cannot be read.
+		static bool IsValidName(const std::string& name) {
+			if (name.empty() || !IsNameStartChar(static_cast<unsigned char>(name[0])))
+				return false;
+
+			for (char c : name) {
+				if (!IsNameChar(static_cast<unsigned char>(c)))
+					return false;
+			}
+			return true;
+		}
+
+		// checks the names of an object header before it is written
+		static bool CheckHeaderNames(const ObjectHeaderInfo& info, std::string& error) {
+			if (!IsValidName(info.name)) {
+				error = "object name '" + info.name + "' contains invalid characters";
+				return false;
+			}
+
+			std::unordered_set<std::string> names;
+			for (const std::string& name : info.columnNames) {
+				if (!IsValidName(name)) {
+					error = "column name '" + name + "' of object '" + info.name + "' contains invalid characters";
+					return false;
+				}
+				if (!names.insert(name).second) {
+					error = "column name '" + name + "' is used twice in object '" + info.name + "'";
+					return false;
+				}
+			}
+
+			for (const OTNTypeDesc& type : info.columnTypes) {
+				if (!type.refObjectName.empty() && !IsValidName(type.refObjectName)) {
+					error = "type '" + type.refObjectName + "' of object '" + info.name + "' contains invalid characters";
+					return false;
+				}
+			}
+			return true;
 		}
 
 		// syntax of OTN::VERSION, used by OTNWriter and OTNStreamWriter
@@ -1669,7 +1820,7 @@ namespace OTN {
 			AddError("Object name '" + name + "' contains invalid characters");
 	}
 
-	OTNObject::OTNObject(const OTNObject& other) noexcept
+	OTNObject::OTNObject(const OTNObject& other)
 		: m_name(other.m_name),
 		m_columnNames(other.m_columnNames),
 		m_columnTypes(other.m_columnTypes),
@@ -1680,7 +1831,7 @@ namespace OTN {
 		m_deducedColumnTypes(other.m_deducedColumnTypes) {
 	}
 
-	OTNObject& OTNObject::operator=(const OTNObject& other) noexcept {
+	OTNObject& OTNObject::operator=(const OTNObject& other) {
 		if (this == &other)
 			return *this;
 
@@ -1709,6 +1860,9 @@ namespace OTN {
 	}
 
 	OTNObject& OTNObject::operator=(OTNObject&& other) noexcept {
+		if (this == &other)
+			return *this;
+
 		m_name = std::move(other.m_name);
 		m_columnNames = std::move(other.m_columnNames);
 		m_columnTypes = std::move(other.m_columnTypes);
@@ -1763,6 +1917,13 @@ namespace OTN {
 	}
 
 	OTNObject& OTNObject::SetTypeDescList(const std::vector<OTNTypeDesc>& types) {
+		if (!m_dataRows.empty()) {
+			AddError(
+				"SetTypes must be called before AddData in object '" + m_name + "'!"
+			);
+			return *this;
+		}
+
 		m_columnTypes = types;
 		return *this;
 	}
@@ -1826,7 +1987,7 @@ namespace OTN {
 		return m_wasBuildFromT;
 	}
 
-	bool OTNObject::TryGetError(std::string& outError) {
+	bool OTNObject::TryGetError(std::string& outError) const {
 		if (m_error.empty())
 			return false;
 		outError = m_error;
@@ -2020,15 +2181,7 @@ namespace OTN {
 	}
 
 	bool OTNObject::IsNameValid(const std::string& name) {
-		// has to match the identifiers of the Tokenizer, otherwise the written file cannot be read
-		if (name.empty() || !Detail::IsNameStartChar(static_cast<unsigned char>(name[0])))
-			return false;
-
-		for (char c : name) {
-			if (!Detail::IsNameChar(static_cast<unsigned char>(c)))
-				return false;
-		}
-		return true;
+		return Detail::IsValidName(name);
 	}
 
 	bool OTNObject::ValidateNamesDistinct() {
@@ -2382,7 +2535,7 @@ namespace OTN {
 		return true;
 	}
 
-	std::string OTNWriter::GetError() {
+	std::string OTNWriter::GetError() const {
 		return m_error;
 	}
 
@@ -2553,12 +2706,18 @@ namespace OTN {
 	bool OTNWriter::WriteToFile(const OTNFilePath& path) {
 		m_writerData.Reset();
 
-		auto& stream = m_writerData.stream;
-		stream.open(path, std::ios::binary);
-		if (!stream.is_open())
+		// objects are converted and checked first, an existing file is only replaced by valid data
+		if (!CreateWriteData(m_writerData))
 			return false;
 
-		bool ok = CreateWriteData(m_writerData) && WriteHeader() && WriteBody() && FlushBuffer(true);
+		auto& stream = m_writerData.stream;
+		stream.open(path, std::ios::binary);
+		if (!stream.is_open()) {
+			AddError("Could not open the file '" + PathToString(path) + "'!");
+			return false;
+		}
+
+		bool ok = WriteHeader() && WriteBody() && FlushBuffer(true);
 		// the last bytes are written on close, it can fail as well (e.g. disk full)
 		stream.close();
 		if (ok && stream.fail()) {
@@ -2651,6 +2810,25 @@ namespace OTN {
 			AddObject(data, obj);
 		}
 
+		if (!IsValid())
+			return false;
+
+		// a value that does not match its column cannot be read again, checked before anything is written
+		for (const auto& [name, obj] : data.objects) {
+			Detail::ObjectHeaderInfo info;
+			info.name = name;
+			info.columnNames = obj.columnNames;
+			info.columnTypes = obj.columnTypes;
+
+			std::string error;
+			for (const auto& row : obj.rows) {
+				if (!Detail::Current::CheckRowTypes(row, info, error)) {
+					AddError("Could not save object '" + name + "': " + error + "!");
+					return false;
+				}
+			}
+		}
+
 		// Count used types (read-only)
 		for (const auto& [name, obj] : data.objects) {
 			CountObjectType(obj, data);
@@ -2680,6 +2858,12 @@ namespace OTN {
 
 		if (inserted) {
 			serObj.columnNames = object.GetColumnNames();
+		}
+		else if (serObj.columnNames != object.GetColumnNames()) {
+			// objects with the same name are written into one block, e.g. a top level object and a custom type
+			AddError("Object name '" + object.GetObjectName() +
+				"' is used by objects with different columns, every object needs a unique name!");
+			return {};
 		}
 
 		if (serObj.columnTypes.empty()) {
@@ -3485,7 +3669,9 @@ namespace OTN {
 
 		std::string rowStr;
 		std::string error;
-		if (!Detail::Current::WriteRow(rowStr, m_writeOptions, converted, m_fileHeader, error)) {
+		if (!Detail::Current::CheckRowTypes(converted, m_blocks[block].header, error) ||
+			!Detail::Current::WriteRow(rowStr, m_writeOptions, converted, m_fileHeader, error))
+		{
 			AddError("OTNStreamWriter: invalid row in '" + m_blocks[block].header.name + "': " + error);
 			return false;
 		}
@@ -3529,10 +3715,12 @@ namespace OTN {
 		block.header.columnNames = colNames;
 		block.header.columnTypes = colTypes;
 
-		// the header is written on Close, check now that it can be written
+		// the header is written on Close, check now that it can be written and read again
 		std::string headerStr;
 		std::string error;
-		if (!Detail::Current::WriteObjectHeader(headerStr, m_writeOptions, block.header, m_fileHeader, error)) {
+		if (!Detail::CheckHeaderNames(block.header, error) ||
+			!Detail::Current::WriteObjectHeader(headerStr, m_writeOptions, block.header, m_fileHeader, error))
+		{
 			AddError("OTNStreamWriter: " + error);
 			return false;
 		}
@@ -3639,6 +3827,11 @@ namespace OTN {
 
 		// sub-objects are written while converting, the rows of this object are collected first
 		// and appended at once, so they stay together and get consecutive indices
+		Detail::ObjectHeaderInfo header;
+		header.name = name;
+		header.columnNames = colNames;
+		header.columnTypes = colTypes;
+
 		const auto& rows = obj.GetDataRows();
 		std::string rowsStr;
 		OTNRow converted;
@@ -3647,7 +3840,9 @@ namespace OTN {
 				return false;
 
 			std::string error;
-			if (!Detail::Current::WriteRow(rowsStr, m_writeOptions, converted, m_fileHeader, error)) {
+			if (!Detail::Current::CheckRowTypes(converted, header, error) ||
+				!Detail::Current::WriteRow(rowsStr, m_writeOptions, converted, m_fileHeader, error))
+			{
 				AddError("OTNStreamWriter: invalid row " + std::to_string(r) + " of '" + name + "': " + error);
 				return false;
 			}
@@ -3787,6 +3982,8 @@ namespace OTN {
 
 		std::string text;
 		Detail::Current::WriteFileHeader(text, m_writeOptions, m_fileHeader);
+		// the @object block is needed by the reader, also without objects
+		Detail::Current::WriteObjectBlockBegin(text, m_writeOptions);
 
 		if (!m_blocks.empty()) {
 			std::ifstream in(m_rowFilePath, std::ios::binary);
@@ -3795,7 +3992,6 @@ namespace OTN {
 				return false;
 			}
 
-			Detail::Current::WriteObjectBlockBegin(text, m_writeOptions);
 			for (const ObjectBlock& block : m_blocks) {
 				std::string error;
 				if (!Detail::Current::WriteObjectHeader(text, m_writeOptions, block.header, m_fileHeader, error)) {
@@ -3808,8 +4004,8 @@ namespace OTN {
 				if (!CopyRanges(block, in))
 					return false;
 			}
-			Detail::Current::WriteObjectBlockEnd(text, m_writeOptions);
 		}
+		Detail::Current::WriteObjectBlockEnd(text, m_writeOptions);
 
 		m_file.write(text.data(), static_cast<std::streamsize>(text.size()));
 		m_file.flush();

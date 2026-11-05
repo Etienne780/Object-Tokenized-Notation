@@ -121,7 +121,7 @@ inline void OTN::ToOTNDataType<Vector2>(OTN::OTNObjectBuilder& obj, Vector2& e) 
 }
 * @endcode
 *
-* @version 1.0
+* @version 2.0
 */
 
 /**
@@ -285,7 +285,7 @@ namespace OTN {
 		* @param depth Array nesting depth (default: 0)
 		*/
 		OTNTypeDesc(const std::string& type, uint32_t depth = 0)
-			: baseType(OTNBaseType::OBJECT), refObjectName(type), listDepth(depth) {
+			: baseType(OTNBaseType::OBJECT), listDepth(depth), refObjectName(type) {
 		}
 	};
 
@@ -330,14 +330,34 @@ namespace OTN {
 	* @param type Base type enum value
 	* @return String representation (e.g., "int", "float")
 	*/
-	constexpr std::string_view OTNValueTypeToString(OTNBaseType type) noexcept;
+	constexpr std::string_view OTNValueTypeToString(OTNBaseType type) noexcept {
+		namespace SynTypes = Syntax::Types;
+
+		switch (type) {
+		case OTNBaseType::INT:        return SynTypes::INT;
+		case OTNBaseType::INT64:      return SynTypes::INT64;
+		case OTNBaseType::UINT64:     return SynTypes::UINT64;
+		case OTNBaseType::FLOAT:      return SynTypes::FLOAT;
+		case OTNBaseType::DOUBLE:     return SynTypes::DOUBLE;
+		case OTNBaseType::BOOL:       return SynTypes::BOOL;
+		case OTNBaseType::STRING:     return SynTypes::STRING;
+		case OTNBaseType::OBJECT:     return SynTypes::OBJECT;
+		case OTNBaseType::OBJECT_REF: return SynTypes::OBJECT_REF;
+		case OTNBaseType::LIST:       return SynTypes::LIST;
+		case OTNBaseType::ANY:        return SynTypes::ANY;
+		case OTNBaseType::UNKNOWN:
+		default:                      return "UNKNOWN";
+		}
+	}
 
 	/**
 	* @brief Get character length of type name
 	* @param type Base type enum value
 	* @return Length of type name string
 	*/
-	constexpr uint32_t OTNValueTypeCharLength(OTNBaseType type) noexcept;
+	constexpr uint32_t OTNValueTypeCharLength(OTNBaseType type) noexcept {
+		return static_cast<uint32_t>(OTNValueTypeToString(type).size());
+	}
 
 	/**
 	* @brief Convert type descriptor to string representation
@@ -682,8 +702,8 @@ namespace OTN {
 		*/
 		explicit OTNObject(const std::string& name);
 
-		OTNObject(const OTNObject& other) noexcept;
-		OTNObject& operator=(const OTNObject& other) noexcept;
+		OTNObject(const OTNObject& other);
+		OTNObject& operator=(const OTNObject& other);
 
 		OTNObject(OTNObject&& other) noexcept;
 		OTNObject& operator=(OTNObject&& other) noexcept;
@@ -947,7 +967,7 @@ namespace OTN {
 		* @param[out] outError Error message if any
 		* @return true if an error exists
 		*/
-		bool TryGetError(std::string& outError);
+		bool TryGetError(std::string& outError) const;
 
 		/**
 		* @brief Get accumulated error messages
@@ -1762,8 +1782,12 @@ namespace OTN {
 				data.push_back(std::move(elem));
 			}
 			return true;
-		}// if type ist not specified check if it can be made with the object builder
-		else if (val.type == OTNBaseType::OBJECT) {
+		}
+		else {
+			// other types are custom types, they are made with the object builder
+			if (val.type != OTNBaseType::OBJECT)
+				return false;
+
 			Detail::OTNObjectPtr ptr = std::get<Detail::OTNObjectPtr>(val.value);
 			if (!ptr)
 				return false;
@@ -1779,7 +1803,6 @@ namespace OTN {
 			}
 			return true;
 		}
-		return false;
 	}
 
 #pragma endregion
@@ -1972,7 +1995,7 @@ namespace OTN {
 		/**
 		* @brief Returns the current error message string.
 		*/
-		std::string GetError();
+		std::string GetError() const;
 
 	private:
 		struct SerializedObject {
@@ -2087,6 +2110,9 @@ namespace OTN {
 	* - DefType/DefName optimizations are not applied (full type names are written).
 	*
 	* - BeginObject/WriteRow and AppendObject may be freely intermixed.
+	*
+	* - Object, column and type names and the values of every row are checked against the columns,
+	*   on an error the writer becomes invalid (see GetError()).
 	*
 	* - Files are fully compatible with OTNReader and OTNStreamReader.
 	*/

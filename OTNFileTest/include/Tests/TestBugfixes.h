@@ -1046,6 +1046,187 @@ inline void Test_Bugfix_DefTablePaysOff(const std::filesystem::path&) {
 }
 
 // ============================================================
+//  NaN and infinity have no literal, writing them fails instead of creating an unreadable file
+// ============================================================
+
+inline void Test_Bugfix_NonFiniteNumbers(const std::filesystem::path& dir) {
+    const float values[] = { std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity() };
+    for (float value : values) {
+        OTN::OTNObject o("F");
+        o.SetNames("f").AddDataRow(value);
+        OTN::OTNWriter w;
+        w.AppendObject(o);
+        std::string text;
+        CHECK(!w.SaveToString(text));
+        CHECK(w.GetError().find("NaN or infinite") != std::string::npos);
+    }
+
+    OTN::OTNObject d("D");
+    d.SetNames("d").AddDataRow(-std::numeric_limits<double>::infinity());
+    OTN::OTNWriter w;
+    w.AppendObject(d);
+    std::string text;
+    CHECK(!w.SaveToString(text));
+
+    OTN::OTNStreamWriter sw;
+    CHECK(sw.Open(MakeTestFile(dir, "bugfix_nonfinite_stream.otn")));
+    CHECK(sw.BeginObject("F", OTN::col("f", "float")));
+    CHECK(!sw.WriteRow(std::numeric_limits<float>::quiet_NaN()));
+    CHECK(!sw.IsValid());
+    sw.Close();
+}
+
+// ============================================================
+//  Values that do not match their column are rejected by the writer (also without OTN_DEBUG)
+// ============================================================
+
+inline void Test_Bugfix_WriterTypeMismatch(const std::filesystem::path& dir) {
+    const auto path = MakeTestFile(dir, "bugfix_type_mismatch.otn");
+
+    // valid file first, a failed save must not replace it
+    OTN::OTNObject valid("T");
+    valid.SetNames("a").SetTypes("int").AddDataRow(7);
+    OTN::OTNWriter first;
+    CHECK(first.AppendObject(valid).Save(path));
+
+    OTN::OTNObject wrong("T");
+    wrong.SetNames("a").SetTypes("int").AddDataRow(std::string("x"));
+    OTN::OTNWriter w;
+    w.AppendObject(wrong);
+    CHECK(!w.Save(path));
+
+    OTN::OTNReader r;
+    CHECK(r.ReadFile(path));
+    const OTN::OTNObject* o = r.FindObject("T");
+    CHECK(o != nullptr);
+    if (o)
+        CHECK_EQ(o->GetValue<int>(0, "a", 0), 7);
+
+    // number that does not fit into the column
+    OTN::OTNObject big("B");
+    big.SetNames("a").SetTypes("int").AddDataRow(int64_t(1) << 40);
+    OTN::OTNWriter w2;
+    w2.AppendObject(big);
+    std::string text;
+    CHECK(!w2.SaveToString(text));
+}
+
+// ============================================================
+//  A top level object and a custom type with the same name but other columns
+// ============================================================
+
+inline void Test_Bugfix_WriterNameCollision(const std::filesystem::path&) {
+    OTN::OTNObject top("Vec2");
+    top.SetNames("name").AddDataRow(std::string("a"));
+
+    OTN::OTNObject entity("Entity");
+    entity.SetNames("pos").AddDataRow(Vec2{ 1.0f, 2.0f });
+
+    OTN::OTNWriter w;
+    w.AppendObject(top).AppendObject(entity);
+    std::string text;
+    CHECK(!w.SaveToString(text));
+    CHECK(w.GetError().find("unique name") != std::string::npos);
+
+    // the same custom type several times is still one object
+    OTN::OTNObject two("Two");
+    two.SetNames("a", "b").AddDataRow(Vec2{ 1.0f, 2.0f }, Vec2{ 3.0f, 4.0f });
+    OTN::OTNWriter w2;
+    w2.AppendObject(two);
+    CHECK(w2.SaveToString(text));
+
+    OTN::OTNReader r;
+    CHECK(r.ReadString(text));
+    const OTN::OTNObject* o = r.FindObject("Two");
+    CHECK(o != nullptr);
+    if (o)
+        CHECK_EQ(o->GetValue<Vec2>(0, "b", Vec2{}).y, 4.0f);
+}
+
+// ============================================================
+//  OTNStreamWriter checks names and values, the file stays readable
+// ============================================================
+
+inline void Test_Bugfix_StreamWriterChecks(const std::filesystem::path& dir) {
+    const auto path = MakeTestFile(dir, "bugfix_stream_checks.otn");
+
+    auto beginFails = [&](const std::string& name, const std::vector<std::string>& names, const std::vector<std::string>& types) {
+        OTN::OTNStreamWriter w;
+        CHECK(w.Open(path));
+        CHECK(!w.BeginObject(name, names, types));
+        CHECK(!w.IsValid());
+        w.Close();
+    };
+
+    beginFails("1Bad", { "a" }, { "int" });
+    beginFails("Good", { "my col" }, { "int" });
+    beginFails("Good", { "a", "a" }, { "int", "int" });
+    beginFails("Good", { "a" }, { "my type" });
+
+    auto rowFails = [&](const std::string& type, auto value) {
+        OTN::OTNStreamWriter w;
+        CHECK(w.Open(path));
+        CHECK(w.BeginObject("Good", OTN::col("v", type)));
+        CHECK(!w.WriteRow(value));
+        CHECK(!w.IsValid());
+        w.Close();
+    };
+
+    rowFails("int", std::string("text"));
+    rowFails("String", 5);
+    rowFails("float", 1e300);
+    rowFails("int[]", 5);
+
+    // valid rows are still written
+    OTN::OTNStreamWriter w;
+    CHECK(w.Open(path));
+    CHECK(w.BeginObject("Good", OTN::col("v", "float"), OTN::col("l", "int[]")));
+    CHECK(w.WriteRow(5, std::vector<int>{ 1, 2 }));
+    CHECK(w.Close());
+
+    OTN::OTNReader r;
+    CHECK(r.ReadFile(path));
+    const OTN::OTNObject* o = r.FindObject("Good");
+    CHECK(o != nullptr);
+    if (o)
+        CHECK_EQ(o->GetValue<float>(0, "v", 0.0f), 5.0f);
+}
+
+// ============================================================
+//  OTNStreamWriter without objects writes a readable file
+// ============================================================
+
+inline void Test_Bugfix_StreamWriterEmpty(const std::filesystem::path& dir) {
+    const auto path = MakeTestFile(dir, "bugfix_stream_empty.otn");
+
+    OTN::OTNStreamWriter w;
+    CHECK(w.Open(path));
+    CHECK(w.Close());
+
+    OTN::OTNReader r;
+    CHECK(r.ReadFile(path));
+    CHECK(r.GetObjects().empty());
+
+    OTN::OTNStreamReader sr;
+    CHECK(sr.Open(path));
+    CHECK(!sr.NextObject());
+    CHECK(sr.IsValid());
+}
+
+// ============================================================
+//  SetTypeDescList after data is an error like SetTypes
+// ============================================================
+
+inline void Test_Bugfix_SetTypeDescListAfterData(const std::filesystem::path&) {
+    OTN::OTNObject o("O");
+    o.SetNames("a").AddDataRow(1);
+    CHECK(o.IsValid());
+    o.SetTypeDescList({ OTN::OTNTypeDesc(OTN::OTNBaseType::STRING) });
+    CHECK(!o.IsValid());
+    CHECK(o.GetColumnTypesDesc()[0].baseType == OTN::OTNBaseType::INT);
+}
+
+// ============================================================
 //  Entry point — call all regression tests
 // ============================================================
 
@@ -1077,4 +1258,10 @@ inline void RunBugfixTests(const std::filesystem::path& basePath) {
     RUN(Test_V2_DefTypeObjects);
     RUN(Test_V2_Compatibility);
     RUN(Test_Bugfix_DefTablePaysOff);
+    RUN(Test_Bugfix_NonFiniteNumbers);
+    RUN(Test_Bugfix_WriterTypeMismatch);
+    RUN(Test_Bugfix_WriterNameCollision);
+    RUN(Test_Bugfix_StreamWriterChecks);
+    RUN(Test_Bugfix_StreamWriterEmpty);
+    RUN(Test_Bugfix_SetTypeDescListAfterData);
 }

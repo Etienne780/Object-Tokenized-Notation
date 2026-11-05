@@ -89,6 +89,7 @@ The same object instance is written only once: an `OTNObject` that is referenced
 
 - `UseDefType`, `UseDefName` and `UseOptimizations` are not available.
 - An object that contains itself (directly or through other objects) is an error.
+- Object, column and type names are checked in `BeginObject`, the values of every row against the column types (see [[types]]). A value that does not match its column (for example a string in an `int` column, NaN or infinity) is an error.
 - After an error the writer stays invalid. `Close()` still writes all rows that were written successfully.
 - `Open()` on an open writer closes the current file first.
 

@@ -136,3 +136,9 @@ if (!writer.Save("data.otn"))
 ```
 
 An `OTNObject` with an error (for example a row with the wrong number of values) is not written, `Save()` fails and `GetError()` names the object. Use `Reset()` to write another file with the same writer. See [[error-handling]].
+
+Before the file is opened, every value is checked against its column, so a written file can always be read again. `Save()` fails (and an existing file is not changed) if:
+
+- a value does not match its column type, for example a string in an `int` column or a number that does not fit,
+- a float or double value is NaN or infinite (the format has no literal for them),
+- two different objects use the same name, for example an appended object and a custom type with other columns.

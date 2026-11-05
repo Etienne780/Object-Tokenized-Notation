@@ -9,7 +9,7 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <output_directory>\n";
+        std::cerr << "Usage: " << argv[0] << " <output_directory> [--no-wait]\n";
         std::cerr << "  e.g.: " << argv[0] << " /tmp/otn_tests\n";
         return 1;
     }
@@ -35,6 +35,9 @@ int main(int argc, char** argv) {
     RunBugfixTests(basePath);
 
     PrintSummary();
-    std::cin.get();
+
+    // keeps the console open, pass --no-wait for automated runs
+    if (argc < 3 || std::string(argv[2]) != "--no-wait")
+        std::cin.get();
     return (g_failed == 0) ? 0 : 1;
 }
