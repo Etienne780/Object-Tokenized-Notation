@@ -1356,6 +1356,32 @@ inline void Test_Bugfix_NegativeNumbers(const std::filesystem::path&) {
 }
 
 // ============================================================
+//  Floating point numbers are written with the shortest text that is read back exactly
+// ============================================================
+
+inline void Test_Bugfix_ShortestFloatText(const std::filesystem::path&) {
+    OTN::OTNObject o("F");
+    o.SetNames("d", "f", "big", "small").AddDataRow(0.8, 0.1f, 1e300, 1.5e-310);
+
+    OTN::OTNWriter w;
+    std::string text;
+    CHECK(w.AppendObject(o).SaveToString(text));
+    CHECK(text.find("0.8, 0.1, ") != std::string::npos);
+    CHECK(text.find("0.80000000000000004") == std::string::npos);
+
+    OTN::OTNReader r;
+    CHECK(r.ReadString(text));
+    const OTN::OTNObject* read = r.FindObject("F");
+    CHECK(read != nullptr);
+    if (read) {
+        CHECK_EQ(read->GetValue<double>(0, "d", 0.0), 0.8);
+        CHECK_EQ(read->GetValue<float>(0, "f", 0.0f), 0.1f);
+        CHECK_EQ(read->GetValue<double>(0, "big", 0.0), 1e300);
+        CHECK_EQ(read->GetValue<double>(0, "small", 0.0), 1.5e-310);
+    }
+}
+
+// ============================================================
 //  Entry point — call all regression tests
 // ============================================================
 
@@ -1396,4 +1422,5 @@ inline void RunBugfixTests(const std::filesystem::path& basePath) {
     RUN(Test_Bugfix_StreamManyReferences);
     RUN(Test_Bugfix_TokensOverBlockBorder);
     RUN(Test_Bugfix_NegativeNumbers);
+    RUN(Test_Bugfix_ShortestFloatText);
 }
