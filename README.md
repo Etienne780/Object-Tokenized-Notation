@@ -197,7 +197,7 @@ Run `build.bat help` to see all available targets.
 build.bat compile
 ```
 
-This generates a Visual Studio 2022 solution and immediately builds it in Debug/x64 using `msbuild`. It requires either an active Visual Studio developer environment or Visual Studio 2022 Community installed at the default path.
+This generates a Visual Studio 2022 solution and immediately builds it in Debug/x64 using `msbuild`. It uses an active Visual Studio developer environment, otherwise the newest Visual Studio installation with C++ build tools is found via `vswhere` (any version and edition).
 
 ### Running the tests
 

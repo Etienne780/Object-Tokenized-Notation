@@ -34,10 +34,21 @@ GOTO Done
 :Compile
 %premake% vs2022
 
-if not defined DevEnvDir (
-    call "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
+if defined DevEnvDir goto Build
+
+set "VSINSTALLER=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer"
+set "PATH=%PATH%;%VSINSTALLER%"
+set "VSPATH="
+for /f "usebackq delims=" %%i in (`"%VSINSTALLER%\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+
+if not defined VSPATH (
+    echo Visual Studio with C++ build tools not found
+    exit /b 1
 )
 
+call "%VSPATH%\Common7\Tools\VsDevCmd.bat" -arch=x64 -no_logo
+
+:Build
 set solutionFile=Project.sln
 msbuild /t:Build /p:Configuration=Debug /p:Platform=x64 %solutionFile%
 GOTO Done
