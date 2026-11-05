@@ -486,8 +486,14 @@ inline void Test_Stream_FileChangedRescan(const std::filesystem::path& dir) {
     CHECK(sr.ReadRow(row));
     CHECK_EQ(std::get<int>(row[0].value), 1);
 
-    // other layout and size: reader rescans and continues at First row 1
+    // other layout and size: ReadRow does not check the file, ReadObjectRow does.
+    // The reader rescans and continues at First row 1
     write(true, 4, true);
+    std::optional<OTN::OTNObject> last = sr.ReadObjectRow("First", 3);
+    CHECK(last.has_value());
+    if (last)
+        CHECK_EQ(last->GetValue<int>(0, "v", 0), 4);
+
     CHECK(sr.ReadRow(row));
     if (!row.empty())
         CHECK_EQ(std::get<int>(row[0].value), 2);
@@ -503,7 +509,7 @@ inline void Test_Stream_FileChangedRescan(const std::filesystem::path& dir) {
     CHECK(sr2.Open(path));
     CHECK(sr2.NextObject());
     write(true, 0, false);
-    CHECK(!sr2.ReadRow(row));
+    CHECK(!sr2.NextObject());
     CHECK(!sr2.IsValid());
 }
 

@@ -77,7 +77,9 @@ A reference to a row that does not exist and cyclic references are errors.
 
 ## Changed files
 
-Before every read, the size and modification time of the file are checked. If the file was changed (for example written again by an `OTNStreamWriter`), it is scanned again and the reader continues at the same object and row. If the current object no longer exists, the reader reports an error.
+`NextObject`, `ReadObject`, `ReadObjectRow` and `GetObjectNames` check the size and modification time of the file. If the file was changed (for example written again by an `OTNStreamWriter`), it is scanned again and the reader continues at the same object and row. If the current object no longer exists, the reader reports an error.
+
+`ReadRow` and `SkipCurrentObject` do not check the file, the check would take longer than reading the row. The file must not be changed while the rows of an object are read.
 
 ## Errors
 

@@ -16,7 +16,7 @@ name: OTNObject
 | `m_columnNames` | `vector<string>` | One name per column |
 | `m_columnTypes` | `vector<OTNTypeDesc>` | One type per column, empty until set or deduced |
 | `m_dataRows` | `vector<OTNRow>` | All rows, a row is a `vector<OTNValue>` |
-| `m_columnIndexCache` | `unordered_map<string, size_t>` | Column name to index, filled on the first lookup |
+| `m_columnIndexCache` | `unique_ptr<unordered_map<string, size_t>>` | Column name to index, created and filled on the first lookup |
 | `m_deducedColumnTypes` | `bool` | Column types are known (set or deduced) |
 | `m_wasBuildFromT` | `bool` | Created by `OTNObjectBuilder` from a custom type |
 | `m_valid`, `m_error` | `bool`, `string` | Error state |
@@ -43,7 +43,7 @@ Only with `OTN_DEBUG` (costs time for every row):
 
 ## Column lookup
 
-`GetColumnID(name)` searches the column names and stores the result in `m_columnIndexCache`. The cache is cleared by `SetNames` and by copying, because it belongs to one object.
+`GetColumnID(name)` searches the column names and stores the result in `m_columnIndexCache`. The cache is cleared by `SetNames` and by copying, because it belongs to one object. It is only created on the first lookup, so objects that are never searched by name (for example resolved references) need no allocation for it.
 
 ## Reading values
 

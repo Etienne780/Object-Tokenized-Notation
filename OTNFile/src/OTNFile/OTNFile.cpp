@@ -77,7 +77,7 @@ namespace OTN {
 
 	// parses a number of an 'any' value (sign included in text)
 	// integers become int, int64 or uint64 (first that fits), all other numbers become double
-	static bool ParseAnyNumber(const std::string& text, OTNValue& out) {
+	static bool ParseAnyNumber(std::string_view text, OTNValue& out) {
 		const char* begin = text.data();
 		const char* end = begin + text.size();
 
@@ -115,14 +115,14 @@ namespace OTN {
 	}
 
 	// parses an unsigned id/count token without throwing
-	static bool ParseUInt32(const std::string& text, uint32_t& out) {
+	static bool ParseUInt32(std::string_view text, uint32_t& out) {
 		const char* end = text.data() + text.size();
 		auto r = std::from_chars(text.data(), end, out);
 		return r.ec == std::errc() && r.ptr == end;
 	}
 
 	// parses an unsigned row index token without throwing
-	static bool ParseIndex(const std::string& text, size_t& out) {
+	static bool ParseIndex(std::string_view text, size_t& out) {
 		const char* end = text.data() + text.size();
 		auto r = std::from_chars(text.data(), end, out);
 		return r.ec == std::errc() && r.ptr == end;
@@ -323,7 +323,7 @@ namespace OTN {
 					return false;
 
 				m_isFile = true;
-				m_buffer.resize(BUFFER_SIZE);
+				m_blocks.reserve(MAX_BLOCKS);
 				return true;
 			}
 
@@ -336,6 +336,8 @@ namespace OTN {
 				m_pos = 0;
 				m_size = 0;
 				m_bufferOffset = 0;
+				m_blocks.clear();
+				m_useCounter = 0;
 			}
 
 			bool Get(char& c) {
@@ -344,6 +346,24 @@ namespace OTN {
 
 				c = m_data[m_pos++];
 				return true;
+			}
+
+			// Direct access to the loaded chars [Current(), Current() + Available()).
+			// Available() loads the next block if needed, 0 is the end of the data.
+			// The chars of a block stay valid while it is loaded (the last MAX_BLOCKS used blocks).
+			size_t Available() {
+				if (m_pos >= m_size && !Fill())
+					return 0;
+				return m_size - m_pos;
+			}
+
+			const char* Current() const {
+				return m_data + m_pos;
+			}
+
+			// skips count chars, count <= Available()
+			void Skip(size_t count) {
+				m_pos += count;
 			}
 
 			int Peek() {
@@ -368,38 +388,91 @@ namespace OTN {
 				if (!m_isFile)
 					return false;
 
-				m_file.clear();
-				m_file.seekg(static_cast<std::streamoff>(offset));
-				if (!m_file)
+				const uint64_t blockOffset = offset - offset % BLOCK_SIZE;
+				if (!LoadBlock(blockOffset))
 					return false;
 
-				m_bufferOffset = offset;
-				m_pos = 0;
-				m_size = 0;
+				const uint64_t pos = offset - blockOffset;
+				if (pos > m_size)
+					return false; // behind the end of the file
+
+				m_pos = static_cast<size_t>(pos);
 				return true;
 			}
 
 		private:
-			static constexpr size_t BUFFER_SIZE = 64 * 1024; // 64 KB
+			// The file is read in blocks, the last used blocks are kept.
+			// Reading references jumps between objects, the blocks of both stay loaded.
+			static constexpr size_t BLOCK_SIZE = 64 * 1024; // 64 KB
+			static constexpr size_t MAX_BLOCKS = 4;
+
+			struct Block {
+				std::vector<char> data;
+				uint64_t offset = 0;
+				size_t size = 0;
+				uint64_t lastUse = 0;
+			};
 
 			std::ifstream m_file;
 			bool m_isFile = false;
-			std::vector<char> m_buffer;
-			const char* m_data = nullptr;  // memory data or m_buffer
+			std::vector<Block> m_blocks;
+			uint64_t m_useCounter = 0;
+			const char* m_data = nullptr;  // memory data or data of the current block
 			size_t m_pos = 0;
 			size_t m_size = 0;
 			uint64_t m_bufferOffset = 0;   // file offset of m_data[0]
+
+			// makes the block at the offset (multiple of BLOCK_SIZE) the current data
+			bool LoadBlock(uint64_t blockOffset) {
+				Block* block = nullptr;
+				for (Block& b : m_blocks) {
+					if (b.offset == blockOffset) {
+						block = &b;
+						break;
+					}
+				}
+
+				if (!block) {
+					if (m_blocks.size() < MAX_BLOCKS) {
+						block = &m_blocks.emplace_back();
+						block->data.resize(BLOCK_SIZE);
+					}
+					else {
+						block = &*std::min_element(m_blocks.begin(), m_blocks.end(),
+							[](const Block& a, const Block& b) { return a.lastUse < b.lastUse; });
+					}
+
+					m_file.clear();
+					m_file.seekg(static_cast<std::streamoff>(blockOffset));
+					if (!m_file) {
+						block->size = 0;
+						block->offset = static_cast<uint64_t>(-1);
+						return false;
+					}
+
+					m_file.read(block->data.data(), static_cast<std::streamsize>(BLOCK_SIZE));
+					block->size = static_cast<size_t>(m_file.gcount());
+					block->offset = blockOffset;
+				}
+
+				block->lastUse = ++m_useCounter;
+				m_data = block->data.data();
+				m_size = block->size;
+				m_bufferOffset = blockOffset;
+				m_pos = 0;
+				return true;
+			}
 
 			bool Fill() {
 				if (!m_isFile)
 					return false;
 
-				m_bufferOffset += m_size;
-				m_pos = 0;
-				m_file.read(m_buffer.data(), static_cast<std::streamsize>(m_buffer.size()));
-				m_size = static_cast<size_t>(m_file.gcount());
-				m_data = m_buffer.data();
-				return m_size > 0;
+				// a block that is not full is the end of the file
+				if (m_data && m_size < BLOCK_SIZE)
+					return false;
+
+				const uint64_t next = m_data ? m_bufferOffset + m_size : 0;
+				return LoadBlock(next) && m_size > 0;
 			}
 		};
 
@@ -452,10 +525,25 @@ namespace OTN {
 			}
 		}
 
+		// The text is a view into the CharSource. It is only owned by the token if it cannot be a view
+		// (over the border of two file blocks, strings with escape sequences, "-" separated from a number).
+		// Views stay valid while their block is loaded: use the text before seeking or reading many more tokens.
 		struct Token {
 			TokenType type = TokenType::UNKNOWN;
-			std::string text;
 			FilePosition pos;
+
+			std::string_view Text() const {
+				return isOwned ? std::string_view(owned) : view;
+			}
+
+			void SetOwned(std::string text) {
+				owned = std::move(text);
+				isOwned = true;
+			}
+
+			std::string_view view;
+			std::string owned;
+			bool isOwned = false;
 		};
 
 		// Splits the chars of a CharSource into tokens, one token at a time.
@@ -484,7 +572,7 @@ namespace OTN {
 				if (Peek().type != type)
 					return false;
 
-				Next();
+				m_peeked.reset();
 				return true;
 			}
 
@@ -515,7 +603,7 @@ namespace OTN {
 					return;
 				}
 				m_line = pos.line;
-				m_column = pos.column;
+				m_lineStart = pos.offset - (pos.column - 1);
 			}
 
 			bool IsValid() const {
@@ -540,47 +628,10 @@ namespace OTN {
 
 			static std::string Describe(const Token& tok) {
 				if (tok.type == TokenType::IDENTIFIER || tok.type == TokenType::NUMBER || tok.type == TokenType::STRING)
-					return TokenTypeToString(tok.type) + "(\"" + tok.text + "\")";
+					return TokenTypeToString(tok.type) + "(\"" + std::string(tok.Text()) + "\")";
 				return TokenTypeToString(tok.type);
 			}
 
-		private:
-			CharSource& m_src;
-			std::optional<Token> m_peeked;
-			bool m_valid = true;
-			std::string m_error;
-			uint32_t m_line = 1;
-			uint32_t m_column = 1;
-
-			FilePosition CurrentPosition() const {
-				return { m_src.Tell(), m_line, m_column };
-			}
-
-			void Advance(char c) {
-				if (c == '\n') {
-					m_line++;
-					m_column = 1;
-				}
-				else {
-					m_column++;
-				}
-			}
-
-			bool GetChar(char& c) {
-				if (!m_src.Get(c))
-					return false;
-				Advance(c);
-				return true;
-			}
-
-			void SkipWhitespace() {
-				int c;
-				char ch;
-				while ((c = m_src.Peek()) != -1 && std::isspace(c))
-					GetChar(ch);
-			}
-
-		public:
 			// Skips a UTF-8 byte order mark, UTF-16 / UTF-32 files are rejected. Call before the first token.
 			bool SkipByteOrderMark() {
 				const int first = m_src.Peek();
@@ -593,7 +644,6 @@ namespace OTN {
 				if (first != 0xEF)
 					return true;
 
-				// the BOM is not counted as column
 				char c;
 				const unsigned char bom[] = { 0xEF, 0xBB, 0xBF };
 				for (unsigned char expected : bom) {
@@ -603,36 +653,113 @@ namespace OTN {
 					}
 					m_src.Get(c);
 				}
+				// the BOM is not counted as column
+				m_lineStart = m_src.Tell();
 				return true;
 			}
 
 		private:
-			Token MakeToken(TokenType type, const FilePosition& pos, std::string text = {}) const {
+			CharSource& m_src;
+			std::optional<Token> m_peeked;
+			bool m_valid = true;
+			std::string m_error;
+			uint32_t m_line = 1;
+			uint64_t m_lineStart = 0; // offset of the first char of the current line, the column is computed from it
+
+			static bool IsSpace(char c) {
+				return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+			}
+
+			static bool IsDigit(char c) {
+				return c >= '0' && c <= '9';
+			}
+
+			FilePosition CurrentPosition() const {
+				const uint64_t offset = m_src.Tell();
+				return { offset, m_line, static_cast<uint32_t>(offset - m_lineStart + 1) };
+			}
+
+			// a line break at the char with this offset was read
+			void NewLine(uint64_t offset) {
+				m_line++;
+				m_lineStart = offset + 1;
+			}
+
+			void SkipWhitespace() {
+				size_t available;
+				while ((available = m_src.Available()) > 0) {
+					const char* chars = m_src.Current();
+					const uint64_t offset = m_src.Tell();
+					size_t i = 0;
+					for (; i < available && IsSpace(chars[i]); ++i) {
+						if (chars[i] == '\n')
+							NewLine(offset + i);
+					}
+					m_src.Skip(i);
+					if (i < available)
+						return;
+				}
+			}
+
+			Token MakeToken(TokenType type, const FilePosition& pos) const {
 				Token t;
 				t.type = type;
-				t.text = std::move(text);
 				t.pos = pos;
 				return t;
+			}
+
+			// Reads chars while accept(c) is true into the text of the token (no line breaks).
+			// The text is a view, only if the chars continue in the next block they are copied.
+			template<typename Accept>
+			void ReadWhile(Token& token, Accept& accept) {
+				size_t available = m_src.Available();
+				const char* chars = m_src.Current();
+				size_t i = 0;
+				while (i < available && accept(chars[i]))
+					++i;
+
+				m_src.Skip(i);
+				if (i < available || available == 0) {
+					token.view = std::string_view(chars, i);
+					return;
+				}
+
+				// end of the loaded block reached, continue in owned text
+				std::string text(chars, i);
+				while ((available = m_src.Available()) > 0) {
+					chars = m_src.Current();
+					i = 0;
+					while (i < available && accept(chars[i]))
+						++i;
+					text.append(chars, i);
+					m_src.Skip(i);
+					if (i < available)
+						break;
+				}
+				token.SetOwned(std::move(text));
 			}
 
 			Token ReadToken() {
 				SkipWhitespace();
 
 				const FilePosition start = CurrentPosition();
-				int next = m_src.Peek();
-				if (next == -1)
+				const size_t available = m_src.Available();
+				if (available == 0)
 					return MakeToken(TokenType::END_OF_FILE, start);
 
-				if (std::isdigit(next))
+				const char* chars = m_src.Current();
+				const char next = chars[0];
+
+				// a '-' directly in front of a digit belongs to the number
+				if (IsDigit(next) || (next == '-' && available > 1 && IsDigit(chars[1])))
 					return ReadNumber(start);
 
-				if (IsNameStartChar(next))
+				if (IsNameStartChar(static_cast<unsigned char>(next)))
 					return ReadIdentifier(start);
 
-				char c;
-				GetChar(c);
+				m_src.Skip(1);
 
-				switch (c) {
+				switch (next) {
 				case Syntax::STATEMENT_TERMINATOR: return MakeToken(TokenType::SEMICOLON, start);
 				case Syntax::KEYWORD_PREFIX_CHAR:  return MakeToken(TokenType::KEYWORD_PREFIX, start);
 				case Syntax::KEYWORD_ASSIGN_CHAR:  return MakeToken(TokenType::COLON, start);
@@ -649,28 +776,54 @@ namespace OTN {
 				case '-':                          return MakeToken(TokenType::MINUS, start);
 				case '"':                          return ReadString(start);
 				default: {
-					Token t = MakeToken(TokenType::UNKNOWN, start, std::string(1, c));
-					AddError(t, std::string("unexpected character '") + c + "'");
+					Token t = MakeToken(TokenType::UNKNOWN, start);
+					t.SetOwned(std::string(1, next));
+					if (next == '\n')
+						NewLine(start.offset);
+					AddError(t, std::string("unexpected character '") + next + "'");
 					return t;
 				}
 				}
 			}
 
+			// the opening quote is read
 			Token ReadString(const FilePosition& start) {
-				std::string text;
-				text.reserve(32);
+				Token t = MakeToken(TokenType::STRING, start);
+				std::string text;   // only used for escape sequences and strings over a block border
+				bool owned = false;
 
-				char c;
-				while (GetChar(c)) {
-					if (c == '"')
-						return MakeToken(TokenType::STRING, start, std::move(text));
-
-					if (c != '\\') {
-						text.push_back(c);
-						continue;
+				size_t available;
+				while ((available = m_src.Available()) > 0) {
+					const char* chars = m_src.Current();
+					const uint64_t offset = m_src.Tell();
+					size_t i = 0;
+					while (i < available && chars[i] != '"' && chars[i] != '\\') {
+						if (chars[i] == '\n')
+							NewLine(offset + i);
+						++i;
 					}
 
-					if (!GetChar(c))
+					if (i < available && chars[i] == '"') {
+						if (!owned)
+							t.view = std::string_view(chars, i);
+						else {
+							text.append(chars, i);
+							t.SetOwned(std::move(text));
+						}
+						m_src.Skip(i + 1);
+						return t;
+					}
+
+					// escape sequence or end of the block: the text is copied from now on
+					owned = true;
+					text.append(chars, i);
+					m_src.Skip(i);
+					if (i == available)
+						continue;
+
+					m_src.Skip(1); // backslash
+					char c;
+					if (!m_src.Get(c))
 						break;
 
 					switch (c) {
@@ -679,68 +832,66 @@ namespace OTN {
 					case '"':  text.push_back('"');  break;
 					case '\\': text.push_back('\\'); break;
 					default: {
-						Token t = MakeToken(TokenType::UNKNOWN, start);
-						AddError(t, std::string("invalid escape sequence '\\") + c + "'");
-						return t;
+						Token error = MakeToken(TokenType::UNKNOWN, start);
+						AddError(error, std::string("invalid escape sequence '\\") + c + "'");
+						if (c == '\n')
+							NewLine(m_src.Tell() - 1);
+						return error;
 					}
 					}
 				}
 
-				Token t = MakeToken(TokenType::UNKNOWN, start);
-				AddError(t, "unterminated string literal");
-				return t;
+				Token error = MakeToken(TokenType::UNKNOWN, start);
+				AddError(error, "unterminated string literal");
+				return error;
 			}
 
 			Token ReadNumber(const FilePosition& start) {
-				std::string text;
-				bool hasDot = false;
-				bool hasExp = false;
+				// [-]digits[.digits][(e|E)[+|-]digits], like before the check of the value is done by from_chars
+				struct Accept {
+					bool first = true;
+					bool hasDot = false;
+					bool hasExp = false;
+					bool afterExp = false;
 
-				char c;
-				int next;
-				while ((next = m_src.Peek()) != -1) {
-					if (next == '.') {
-						if (hasDot || hasExp)
-							break;
-						hasDot = true;
-					}
-					else if (next == 'e' || next == 'E') {
-						if (hasExp)
-							break;
-						hasExp = true;
+					bool operator()(char c) {
+						const bool wasFirst = first;
+						const bool wasAfterExp = afterExp;
+						first = false;
+						afterExp = false;
 
-						GetChar(c);
-						text.push_back(c);
-
-						// exponent can have a sign
-						int sign = m_src.Peek();
-						if (sign == '+' || sign == '-') {
-							GetChar(c);
-							text.push_back(c);
+						if (IsDigit(c))
+							return true;
+						if (c == '-' && wasFirst)
+							return true;
+						if (c == '.') {
+							if (hasDot || hasExp)
+								return false;
+							hasDot = true;
+							return true;
 						}
-						continue;
+						if (c == 'e' || c == 'E') {
+							if (hasExp)
+								return false;
+							hasExp = true;
+							afterExp = true;
+							return true;
+						}
+						return (c == '+' || c == '-') && wasAfterExp;
 					}
-					else if (!std::isdigit(next)) {
-						break;
-					}
+				};
 
-					GetChar(c);
-					text.push_back(c);
-				}
-
-				return MakeToken(TokenType::NUMBER, start, std::move(text));
+				Token t = MakeToken(TokenType::NUMBER, start);
+				Accept accept;
+				ReadWhile(t, accept);
+				return t;
 			}
 
 			Token ReadIdentifier(const FilePosition& start) {
-				std::string text;
-				char c;
-				int next;
-				while ((next = m_src.Peek()) != -1 && IsNameChar(next)) {
-					GetChar(c);
-					text.push_back(c);
-				}
-
-				return MakeToken(TokenType::IDENTIFIER, start, std::move(text));
+				Token t = MakeToken(TokenType::IDENTIFIER, start);
+				auto accept = [](char c) { return IsNameChar(static_cast<unsigned char>(c)); };
+				ReadWhile(t, accept);
+				return t;
 			}
 		};
 
@@ -768,7 +919,7 @@ namespace OTN {
 			if (!tok.Expect(TokenType::KEYWORD_PREFIX) || !tok.Expect(TokenType::IDENTIFIER, &keyword))
 				return std::nullopt;
 
-			if (keyword.text != Keyword::VERSION_KW) {
+			if (keyword.Text() != Keyword::VERSION_KW) {
 				tok.AddError(keyword, "file has to start with '" +
 					std::string(1, Syntax::KEYWORD_PREFIX_CHAR) + std::string(Keyword::VERSION_KW) + "'");
 				return std::nullopt;
@@ -782,8 +933,8 @@ namespace OTN {
 			}
 
 			uint32_t version = 0;
-			if (!ParseUInt32(number.text, version) || version == 0 || version > std::numeric_limits<uint8_t>::max()) {
-				tok.AddError(number, "invalid version number '" + number.text + "'");
+			if (!ParseUInt32(number.Text(), version) || version == 0 || version > std::numeric_limits<uint8_t>::max()) {
+				tok.AddError(number, "invalid version number '" + std::string(number.Text()) + "'");
 				return std::nullopt;
 			}
 			return static_cast<uint8_t>(version);
@@ -805,32 +956,37 @@ namespace OTN {
 			};
 
 			template<typename T>
-			static bool ParseNumber(const std::string& text, T& out) {
+			static bool ParseNumber(std::string_view text, T& out) {
 				const char* end = text.data() + text.size();
 				auto r = std::from_chars(text.data(), end, out);
 				return r.ec == std::errc() && r.ptr == end;
 			}
 
-			// [-]NUMBER, returns the number text including the sign
-			static bool ReadNumberText(Tokenizer& tok, std::string& outText, Token& outToken) {
-				bool negative = tok.NextIf(TokenType::MINUS);
+			// [-]NUMBER, returns the number text including the sign.
+			// The text is valid as long as outToken and its file block (see Token).
+			static bool ReadNumberText(Tokenizer& tok, std::string_view& outText, Token& outToken) {
+				// the tokenizer reads "-5" as one number, only "- 5" is a separate '-'
+				const bool separateMinus = tok.NextIf(TokenType::MINUS);
 				if (!tok.Expect(TokenType::NUMBER, &outToken))
 					return false;
 
-				outText = negative ? "-" + outToken.text : outToken.text;
+				if (separateMinus)
+					outToken.SetOwned("-" + std::string(outToken.Text()));
+
+				outText = outToken.Text();
 				return true;
 			}
 
 			template<typename T>
 			static std::optional<OTNValue> ReadNumberValue(Tokenizer& tok, OTNBaseType type) {
-				std::string text;
+				std::string_view text;
 				Token numberToken;
 				if (!ReadNumberText(tok, text, numberToken))
 					return std::nullopt;
 
 				T value{};
 				if (!ParseNumber(text, value)) {
-					tok.AddError(numberToken, "invalid " + std::string(OTNValueTypeToString(type)) + " literal '" + text + "'");
+					tok.AddError(numberToken, "invalid " + std::string(OTNValueTypeToString(type)) + " literal '" + std::string(text) + "'");
 					return std::nullopt;
 				}
 				return OTNValue(value);
@@ -848,14 +1004,14 @@ namespace OTN {
 				case OTNBaseType::BOOL: {
 					Token t = tok.Next();
 					if (t.type == TokenType::IDENTIFIER) {
-						if (t.text == Keyword::TRUE_KW)
+						if (t.Text() == Keyword::TRUE_KW)
 							return OTNValue(true);
-						if (t.text == Keyword::FALSE_KW)
+						if (t.Text() == Keyword::FALSE_KW)
 							return OTNValue(false);
 					}
 					else if (t.type == TokenType::NUMBER) {
 						int64_t number = 0;
-						if (ParseNumber(t.text, number))
+						if (ParseNumber(t.Text(), number))
 							return OTNValue(number != 0);
 					}
 
@@ -866,7 +1022,7 @@ namespace OTN {
 					Token t;
 					if (!tok.Expect(TokenType::STRING, &t))
 						return std::nullopt;
-					return OTNValue(t.text);
+					return OTNValue(std::string(t.Text()));
 				}
 				default:
 					tok.AddError(tok.Peek(), "unsupported column type '" + std::string(OTNValueTypeToString(type)) + "'");
@@ -881,8 +1037,8 @@ namespace OTN {
 					return std::nullopt;
 
 				size_t index = 0;
-				if (!ParseIndex(t.text, index)) {
-					tok.AddError(t, "invalid object reference index '" + t.text + "'");
+				if (!ParseIndex(t.Text(), index)) {
+					tok.AddError(t, "invalid object reference index '" + std::string(t.Text()) + "'");
 					return std::nullopt;
 				}
 				return OTNValue(OTNObjectRef(objectName, index));
@@ -914,10 +1070,10 @@ namespace OTN {
 			}
 
 			// number of an 'any' column: int, int64, uint64 or double
-			static std::optional<OTNValue> ParseAnyNumberValue(Tokenizer& tok, const std::string& text, const Token& numberToken) {
+			static std::optional<OTNValue> ParseAnyNumberValue(Tokenizer& tok, std::string_view text, const Token& numberToken) {
 				OTNValue value;
 				if (!ParseAnyNumber(text, value)) {
-					tok.AddError(numberToken, "invalid numeric literal '" + text + "' in 'any' value");
+					tok.AddError(numberToken, "invalid numeric literal '" + std::string(text) + "' in 'any' value");
 					return std::nullopt;
 				}
 				return value;
@@ -928,22 +1084,22 @@ namespace OTN {
 				const TokenType type = tok.Peek().type;
 				switch (type) {
 				case TokenType::STRING:
-					return OTNValue(tok.Next().text);
+					return OTNValue(std::string(tok.Next().Text()));
 
 				case TokenType::IDENTIFIER: {
 					Token t = tok.Next();
-					if (t.text == Keyword::TRUE_KW)
+					if (t.Text() == Keyword::TRUE_KW)
 						return OTNValue(true);
-					if (t.text == Keyword::FALSE_KW)
+					if (t.Text() == Keyword::FALSE_KW)
 						return OTNValue(false);
 
-					tok.AddError(t, "unexpected identifier '" + t.text + "' in 'any' value");
+					tok.AddError(t, "unexpected identifier '" + std::string(t.Text()) + "' in 'any' value");
 					return std::nullopt;
 				}
 
 				case TokenType::NUMBER:
 				case TokenType::MINUS: {
-					std::string text;
+					std::string_view text;
 					Token numberToken;
 					if (!ReadNumberText(tok, text, numberToken))
 						return std::nullopt;
@@ -991,17 +1147,17 @@ namespace OTN {
 						return false;
 					}
 
-					if (isTypeTable && !allowObjectTypes && StringToOTNBaseType(name.text) == OTNBaseType::UNKNOWN) {
-						tok.AddError(name, "unknown type '" + name.text + "'");
+					if (isTypeTable && !allowObjectTypes && StringToOTNBaseType(std::string(name.Text())) == OTNBaseType::UNKNOWN) {
+						tok.AddError(name, "unknown type '" + std::string(name.Text()) + "'");
 						return false;
 					}
 
 					uint32_t id = 0;
-					if (!ParseUInt32(number.text, id)) {
-						tok.AddError(number, "invalid id '" + number.text + "'");
+					if (!ParseUInt32(number.Text(), id)) {
+						tok.AddError(number, "invalid id '" + std::string(number.Text()) + "'");
 						return false;
 					}
-					outTable.Add(id, name.text);
+					outTable.Add(id, std::string(name.Text()));
 				} while (tok.NextIf(TokenType::COMMA));
 
 				return tok.Expect(TokenType::SEMICOLON);
@@ -1016,21 +1172,21 @@ namespace OTN {
 					if (!tok.Expect(TokenType::KEYWORD_PREFIX) || !tok.Expect(TokenType::IDENTIFIER, &keyword))
 						return std::nullopt;
 
-					if (keyword.text == Keyword::DEF_TYPE_KW) {
+					if (keyword.Text() == Keyword::DEF_TYPE_KW) {
 						if (!ReadDefinitions(tok, info.defType, true, allowObjectTypes))
 							return std::nullopt;
 					}
-					else if (keyword.text == Keyword::DEF_NAME_KW) {
+					else if (keyword.Text() == Keyword::DEF_NAME_KW) {
 						if (!ReadDefinitions(tok, info.defName, false, false))
 							return std::nullopt;
 					}
-					else if (keyword.text == Keyword::OBJECT_KW) {
+					else if (keyword.Text() == Keyword::OBJECT_KW) {
 						if (!tok.Expect(TokenType::COLON) || !tok.Expect(TokenType::BLOCK_BEGIN))
 							return std::nullopt;
 						return info;
 					}
 					else {
-						tok.AddError(keyword, "unknown directive '" + std::string(1, Syntax::KEYWORD_PREFIX_CHAR) + keyword.text + "'");
+						tok.AddError(keyword, "unknown directive '" + std::string(1, Syntax::KEYWORD_PREFIX_CHAR) + std::string(keyword.Text()) + "'");
 						return std::nullopt;
 					}
 				}
@@ -1064,7 +1220,7 @@ namespace OTN {
 				Token t = tok.Next();
 				std::optional<OTNTypeDesc> type;
 
-				if (t.type == TokenType::IDENTIFIER && t.text == Keyword::REF_KW) {
+				if (t.type == TokenType::IDENTIFIER && t.Text() == Keyword::REF_KW) {
 					Token name;
 					if (!tok.Expect(TokenType::REF_BEGIN) ||
 						!tok.Expect(TokenType::IDENTIFIER, &name) ||
@@ -1072,16 +1228,16 @@ namespace OTN {
 					{
 						return std::nullopt;
 					}
-					type = OTNTypeDesc(name.text);
+					type = OTNTypeDesc(std::string(name.Text()));
 				}
 				else if (t.type == TokenType::IDENTIFIER) {
-					type = ParseTypeString(t.text);
+					type = ParseTypeString(std::string(t.Text()));
 				}
 				else if (t.type == TokenType::NUMBER) {
 					uint32_t id = 0;
-					const std::string* name = ParseUInt32(t.text, id) ? file.defType.FindName(id) : nullptr;
+					const std::string* name = ParseUInt32(t.Text(), id) ? file.defType.FindName(id) : nullptr;
 					if (!name) {
-						tok.AddError(t, "unknown @defType id '" + t.text + "'");
+						tok.AddError(t, "unknown @defType id '" + std::string(t.Text()) + "'");
 						return std::nullopt;
 					}
 					type = ParseTypeString(*name);
@@ -1104,15 +1260,15 @@ namespace OTN {
 			static std::optional<std::string> ReadColumnName(Tokenizer& tok, const FileHeaderInfo& file) {
 				Token t = tok.Next();
 				if (t.type == TokenType::IDENTIFIER)
-					return t.text;
+					return std::string(t.Text());
 
 				if (t.type == TokenType::NUMBER) {
 					uint32_t id = 0;
-					const std::string* name = ParseUInt32(t.text, id) ? file.defName.FindName(id) : nullptr;
+					const std::string* name = ParseUInt32(t.Text(), id) ? file.defName.FindName(id) : nullptr;
 					if (name)
 						return *name;
 
-					tok.AddError(t, "unknown @defName id '" + t.text + "'");
+					tok.AddError(t, "unknown @defName id '" + std::string(t.Text()) + "'");
 					return std::nullopt;
 				}
 
@@ -1134,9 +1290,9 @@ namespace OTN {
 				}
 
 				ObjectHeaderInfo info;
-				info.name = name.text;
-				if (!ParseIndex(count.text, info.rowCount)) {
-					tok.AddError(count, "invalid row count '" + count.text + "'");
+				info.name = std::string(name.Text());
+				if (!ParseIndex(count.Text(), info.rowCount)) {
+					tok.AddError(count, "invalid row count '" + std::string(count.Text()) + "'");
 					return std::nullopt;
 				}
 
@@ -1256,14 +1412,23 @@ namespace OTN {
 			// string literal including quotes, escapes chars the reader treats as escape sequences
 			static void AppendEscapedString(std::string& out, const std::string& value) {
 				out.push_back('"');
-				for (char c : value) {
-					switch (c) {
+				// text between the chars that need an escape sequence is appended at once
+				size_t start = 0;
+				while (true) {
+					const size_t pos = value.find_first_of("\"\\\n\t", start);
+					if (pos == std::string::npos) {
+						out.append(value, start, std::string::npos);
+						break;
+					}
+
+					out.append(value, start, pos - start);
+					switch (value[pos]) {
 					case '"':  out += "\\\""; break;
 					case '\\': out += "\\\\"; break;
 					case '\n': out += "\\n";  break;
-					case '\t': out += "\\t";  break;
-					default:   out.push_back(c); break;
+					default:   out += "\\t";  break;
 					}
+					start = pos + 1;
 				}
 				out.push_back('"');
 			}
@@ -1506,7 +1671,7 @@ namespace OTN {
 			// "#index" of a reference in an 'any' value, the object name is already read
 			static std::optional<OTNValue> ReadAnyObjectRef(Tokenizer& tok, const std::string& objectName, const Token& nameToken) {
 				if (!tok.NextIf(TokenType::REF_INDEX)) {
-					tok.AddError(nameToken, "unexpected '" + nameToken.text + "' in 'any' value, object references are written as Name" +
+					tok.AddError(nameToken, "unexpected '" + std::string(nameToken.Text()) + "' in 'any' value, object references are written as Name" +
 						std::string(1, Syntax::REF_INDEX_CHAR) + "index");
 					return std::nullopt;
 				}
@@ -1517,16 +1682,17 @@ namespace OTN {
 				switch (tok.Peek().type) {
 				case TokenType::IDENTIFIER: {
 					Token t = tok.Next();
-					if (t.text == Keyword::TRUE_KW)
+					if (t.Text() == Keyword::TRUE_KW)
 						return OTNValue(true);
-					if (t.text == Keyword::FALSE_KW)
+					if (t.Text() == Keyword::FALSE_KW)
 						return OTNValue(false);
-					return ReadAnyObjectRef(tok, t.text, t);
+					return ReadAnyObjectRef(tok, std::string(t.Text()), t);
 				}
 
 				case TokenType::NUMBER:
 				case TokenType::MINUS: {
-					std::string text;
+					// the view stays valid while the next token is peeked (the block stays loaded)
+					std::string_view text;
 					Token numberToken;
 					if (!V1::ReadNumberText(tok, text, numberToken))
 						return std::nullopt;
@@ -1538,11 +1704,11 @@ namespace OTN {
 					uint32_t id = 0;
 					const std::string* name = ParseUInt32(text, id) ? ctx.file.defType.FindName(id) : nullptr;
 					if (!name) {
-						tok.AddError(numberToken, "unknown @defType id '" + text + "'");
+						tok.AddError(numberToken, "unknown @defType id '" + std::string(text) + "'");
 						return std::nullopt;
 					}
 					if (StringToOTNBaseType(*name) != OTNBaseType::UNKNOWN) {
-						tok.AddError(numberToken, "@defType id '" + text + "' is the type '" + *name + "', not an object");
+						tok.AddError(numberToken, "@defType id '" + std::string(text) + "' is the type '" + *name + "', not an object");
 						return std::nullopt;
 					}
 					return ReadAnyObjectRef(tok, *name, numberToken);
@@ -1843,7 +2009,7 @@ namespace OTN {
 		m_valid = other.m_valid;
 		m_wasBuildFromT = other.m_wasBuildFromT;
 		m_deducedColumnTypes = other.m_deducedColumnTypes;
-		m_columnIndexCache.clear();
+		m_columnIndexCache.reset();
 		return *this;
 	}
 
@@ -1883,7 +2049,7 @@ namespace OTN {
 			return *this;
 		}
 
-		m_columnIndexCache.clear();
+		m_columnIndexCache.reset();
 		m_columnNames.clear();
 		m_columnNames.reserve(names.size());
 		for (const auto& n : names) {
@@ -2063,13 +2229,17 @@ namespace OTN {
 	}
 
 	std::optional<size_t> OTNObject::GetColumnID(const std::string& name) const {
-		auto it = m_columnIndexCache.find(name);
-		if (it != m_columnIndexCache.end())
-			return it->second;
+		if (m_columnIndexCache) {
+			auto it = m_columnIndexCache->find(name);
+			if (it != m_columnIndexCache->end())
+				return it->second;
+		}
 
 		for (size_t i = 0; i < m_columnNames.size(); ++i) {
 			if (m_columnNames[i] == name) {
-				m_columnIndexCache[name] = i;
+				if (!m_columnIndexCache)
+					m_columnIndexCache = std::make_unique<std::unordered_map<std::string, size_t>>();
+				(*m_columnIndexCache)[name] = i;
 				return i;
 			}
 		}
@@ -2099,7 +2269,7 @@ namespace OTN {
 			return;
 		}
 
-		m_columnIndexCache.clear();
+		m_columnIndexCache.reset();
 		m_columnNames = std::move(names);
 	}
 
@@ -2118,6 +2288,15 @@ namespace OTN {
 
 	void OTNObject::AddRowInternal(OTNRow&& row) {
 		m_dataRows.emplace_back(std::move(row));
+	}
+
+	void OTNObject::SetCheckedData(const std::vector<std::string>& names, const std::vector<OTNTypeDesc>& types, OTNRow&& row) {
+		m_columnIndexCache.reset();
+		m_columnNames = names;
+		m_columnTypes = types;
+		m_dataRows.clear();
+		m_dataRows.push_back(std::move(row));
+		m_deducedColumnTypes = true;
 	}
 
 	bool OTNObject::AddSingleType(
@@ -2539,13 +2718,13 @@ namespace OTN {
 		return m_error;
 	}
 
-	size_t OTNWriter::SerializedObject::AddOrGetRow(const Row& row, bool deduplicateRows) {
+	size_t OTNWriter::SerializedObject::AddOrGetRow(Row&& row, bool deduplicateRows) {
 		if (row.empty())
 			return static_cast<size_t>(-1);
 
 		if (!deduplicateRows) {
 			size_t index = rows.size();
-			rows.push_back(row);
+			rows.push_back(std::move(row));
 			return index;
 		}
 
@@ -2564,7 +2743,7 @@ namespace OTN {
 
 		size_t index = rows.size();
 		rowIndexByHash[hash] = index;
-		rows.push_back(row);
+		rows.push_back(std::move(row));
 		return index;
 	}
 
@@ -2906,7 +3085,7 @@ namespace OTN {
 				columnTypeIndex++;
 			}
 
-			indices.emplace_back(serObj.AddOrGetRow(serRow, m_useDeduplicateRows));
+			indices.emplace_back(serObj.AddOrGetRow(std::move(serRow), m_useDeduplicateRows));
 		}
 
 		return indices;
@@ -3368,7 +3547,8 @@ namespace OTN {
 					rowsRead = false;
 					break;
 				}
-				obj.AddDataRowList(*row);
+				// the row has one value of the column type per column, no copy and check needed
+				obj.AddRowInternal(std::move(*row));
 			}
 
 			if (!rowsRead)
@@ -3427,7 +3607,8 @@ namespace OTN {
 		if (value.type != OTNBaseType::OBJECT_REF)
 			return true;
 
-		const Detail::OTNObjectRef ref = std::get<Detail::OTNObjectRef>(value.value);
+		// stays valid until value is replaced at the end
+		const Detail::OTNObjectRef& ref = std::get<Detail::OTNObjectRef>(value.value);
 
 		auto it = data.objects.find(ref.refObjectName);
 		if (it == data.objects.end()) {
@@ -3452,7 +3633,7 @@ namespace OTN {
 		}
 
 		for (const auto& [name, index] : stack) {
-			if (index == ref.index && name == ref.refObjectName) {
+			if (index == ref.index && *name == ref.refObjectName) {
 				AddError("Cyclic object reference to row " + std::to_string(ref.index) +
 					" of object '" + ref.refObjectName + "'");
 				return false;
@@ -3461,19 +3642,19 @@ namespace OTN {
 
 		// resolve the references of the referenced row (recursive) on a copy
 		OTNRow row = targetRows[ref.index];
-		stack.emplace_back(ref.refObjectName, ref.index);
+		// the map key lives as long as the reader data
+		const std::string& targetName = it->first;
+		stack.emplace_back(&targetName, ref.index);
 		for (OTNValue& elem : row) {
-			if (!ResolveValue(data, ref.refObjectName, elem, stack))
+			if (!ResolveValue(data, targetName, elem, stack))
 				return false;
 		}
 		stack.pop_back();
 
-		Detail::OTNObjectPtr resolved = std::make_shared<OTNObject>(ref.refObjectName);
-		resolved->SetNamesList(target.GetColumnNames());
-		resolved->SetTypeDescList(target.GetColumnTypesDesc());
-		resolved->AddDataRowList(row);
-
-		value = OTNValue(resolved);
+		// names and types were checked when the target object was read
+		Detail::OTNObjectPtr resolved = std::make_shared<OTNObject>(targetName);
+		resolved->SetCheckedData(target.GetColumnNames(), target.GetColumnTypesDesc(), std::move(row));
+		value = OTNValue(std::move(resolved));
 		return true;
 	}
 
@@ -4179,6 +4360,13 @@ namespace OTN {
 				return false;
 			}
 
+			// checked once here, the rows are read without checking the names again
+			std::string nameError;
+			if (!Detail::CheckHeaderNames(*objectHeader, nameError)) {
+				AddError("OTNStreamReader: " + nameError);
+				return false;
+			}
+
 			ObjectInfo info;
 			info.header = std::move(*objectHeader);
 			info.rowCheckpoints.push_back(m_tok->Tell());
@@ -4272,8 +4460,17 @@ namespace OTN {
 		if (checkpoint >= info.rowCheckpoints.size())
 			checkpoint = info.rowCheckpoints.size() - 1;
 
-		m_tok->Seek(info.rowCheckpoints[checkpoint]);
-		for (size_t r = checkpoint * ROW_CHECKPOINT_INTERVAL; r < row; ++r) {
+		size_t startRow = checkpoint * ROW_CHECKPOINT_INTERVAL;
+		Detail::FilePosition start = info.rowCheckpoints[checkpoint];
+
+		// the row behind the last loaded row is closer than the checkpoint
+		if (info.nextRow != NO_ROW && info.nextRow <= row && info.nextRow > startRow) {
+			startRow = info.nextRow;
+			start = info.nextRowPosition;
+		}
+
+		m_tok->Seek(start);
+		for (size_t r = startRow; r < row; ++r) {
 			if (!m_syntax->skipRow(*m_tok))
 				return TokenizerFailed();
 		}
@@ -4310,7 +4507,8 @@ namespace OTN {
 	}
 
 	bool OTNStreamReader::ReadRow(OTNRow& outRow) {
-		if (!EnsureUpToDate())
+		// no file check here, it would cost more than reading the row (checked by NextObject)
+		if (!m_valid || !m_tok)
 			return false;
 		if (m_currentObject == NO_OBJECT || m_remainingRows == 0)
 			return false;
@@ -4337,7 +4535,7 @@ namespace OTN {
 	}
 
 	bool OTNStreamReader::SkipCurrentObject() {
-		if (!EnsureUpToDate())
+		if (!m_valid || !m_tok)
 			return false;
 		if (m_currentObject == NO_OBJECT)
 			return true;
@@ -4403,7 +4601,7 @@ namespace OTN {
 			}
 
 			if (ok)
-				obj.AddDataRowList(row);
+				obj.AddRowInternal(std::move(row));
 		}
 
 		m_tok->Seek(pos);
@@ -4431,6 +4629,10 @@ namespace OTN {
 
 		OTNRow values;
 		bool ok = SeekToRow(info, row) && ReadRowValues(info, values);
+		if (ok) {
+			info.nextRow = row + 1;
+			info.nextRowPosition = m_tok->Tell();
+		}
 
 		if (ok && m_resolveObjectRefs) {
 			stack.push_back({ info.header.name, row });
@@ -4442,16 +4644,9 @@ namespace OTN {
 		if (!ok)
 			return std::nullopt;
 
-		OTNObject obj(info.header.name);
-		obj.SetNamesList(info.header.columnNames);
-		obj.SetTypeDescList(info.header.columnTypes);
-		obj.AddDataRowList(values);
-
-		if (!obj.IsValid()) {
-			AddError("OTNStreamReader: row " + std::to_string(row) + " of object '" +
-				info.header.name + "' is invalid: " + obj.GetError());
-			return std::nullopt;
-		}
+		// names were checked by Scan, the row has one value of the column type per column
+		std::optional<OTNObject> obj(std::in_place, info.header.name);
+		obj->SetCheckedData(info.header.columnNames, info.header.columnTypes, std::move(values));
 		return obj;
 	}
 

@@ -25,8 +25,8 @@ Write functions **take** an info struct and append text to a `std::string`. Read
 
 | Class | Task |
 |---|---|
-| `CharSource` | Characters from memory (`OpenMemory`) or from a file with a 64 KB buffer (`OpenFile`). Can jump to a `FilePosition` (`Seek`). |
-| `Tokenizer` | Creates tokens on demand from a `CharSource`: `Next`, `Peek`, `NextIf`, `Expect`. `Tell` / `Seek` save and restore the position. |
+| `CharSource` | Characters from memory (`OpenMemory`) or from a file in 64 KB blocks, the last 4 used blocks are kept (`OpenFile`). `Available` / `Current` / `Skip` give direct access to the loaded chars. Can jump to a `FilePosition` (`Seek`). |
+| `Tokenizer` | Creates tokens on demand from a `CharSource`: `Next`, `Peek`, `NextIf`, `Expect`. `Tell` / `Seek` save and restore the position. The text of a token is a `string_view` into the loaded chars, it is only copied for strings with escape sequences and tokens over a block border. |
 
 All readers use the same tokenizer. `OTNReader` reads from memory, `OTNStreamReader` from the file. Errors contain the line and column of the token.
 

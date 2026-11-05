@@ -1227,6 +1227,135 @@ inline void Test_Bugfix_SetTypeDescListAfterData(const std::filesystem::path&) {
 }
 
 // ============================================================
+//  StreamReader: many references over several file blocks, in order and backwards
+// ============================================================
+
+inline void Test_Bugfix_StreamManyReferences(const std::filesystem::path& dir) {
+    const auto path = MakeTestFile(dir, "bugfix_stream_many_refs.otn");
+    const int count = 20000; // several 64 KB blocks and row checkpoints
+
+    OTN::OTNStreamWriter w;
+    CHECK(w.Open(path));
+    CHECK(w.BeginObject("Enemy", OTN::col("id", "int"), OTN::col("name", "String"), OTN::col("pos", "Vec2")));
+    for (int i = 0; i < count; ++i)
+        w.WriteRow(i, "Enemy_" + std::to_string(i), Vec2{ float(i), float(-i) });
+    CHECK(w.Close());
+
+    OTN::OTNStreamReader r;
+    CHECK(r.Open(path));
+
+    // sequential with resolved references
+    int read = 0;
+    bool valuesOk = true;
+    while (r.NextObject()) {
+        if (r.GetCurrentObjectName() != "Enemy") {
+            r.SkipCurrentObject();
+            continue;
+        }
+
+        OTN::OTNRow row;
+        while (r.ReadRow(row)) {
+            const int id = std::get<int>(row[0].value);
+            const auto& pos = std::get<std::shared_ptr<OTN::OTNObject>>(row[2].value);
+            valuesOk = valuesOk && id == read && pos &&
+                pos->GetValue<float>(0, "x", -1.0f) == float(id) && pos->GetValue<float>(0, "y", 1.0f) == float(-id);
+            ++read;
+        }
+    }
+    CHECK_EQ(read, count);
+    CHECK(valuesOk);
+    CHECK(r.IsValid());
+
+    // backwards and jumping, the remembered position must not be used for earlier rows
+    bool randomOk = true;
+    for (int i = count - 1; i >= 0; i -= 997) {
+        std::optional<OTN::OTNObject> row = r.ReadObjectRow("Enemy", size_t(i));
+        randomOk = randomOk && row && row->GetValue<int>(0, "id", -1) == i &&
+            row->GetValue<Vec2>(0, "pos", Vec2{}).x == float(i);
+    }
+    CHECK(randomOk);
+    CHECK(r.IsValid());
+}
+
+// ============================================================
+//  Tokenizer: tokens over the border of two 64 KB file blocks (StreamReader)
+// ============================================================
+
+inline void Test_Bugfix_TokensOverBlockBorder(const std::filesystem::path& dir) {
+    const auto path = MakeTestFile(dir, "bugfix_block_border.otn");
+    const int count = 3000; // > 64 KB, several block borders
+
+    auto text = [](int pad, int i) {
+        std::string s(i == 0 ? size_t(pad) : size_t(i % 23), 'x');
+        if (i % 5 == 0)
+            s += "a\"b\\c\nd\te";
+        return s;
+    };
+
+    // the first string moves all following tokens, so different tokens are cut by the block borders.
+    // The moves cover more than the length of a row, so every token type is cut at least once.
+    bool allOk = true;
+    for (int pad = 0; pad < 80; ++pad) {
+        OTN::OTNObject o("Row");
+        o.SetNames("id", "text", "value", "neg", "list");
+        for (int i = 0; i < count; ++i)
+            o.AddDataRow(i, text(pad, i), double(i) * 1.000123456789, -i * 7, std::vector<int>{ i, -i });
+
+        OTN::OTNWriter w;
+        if (!w.AppendObject(o).Save(path)) {
+            allOk = false;
+            break;
+        }
+
+        OTN::OTNStreamReader r;
+        if (!r.Open(path) || !r.NextObject()) {
+            allOk = false;
+            break;
+        }
+
+        OTN::OTNRow row;
+        int i = 0;
+        while (r.ReadRow(row)) {
+            const auto& list = std::get<std::shared_ptr<OTN::Detail::OTNArray>>(row[4].value)->values;
+            allOk = allOk &&
+                std::get<int>(row[0].value) == i &&
+                std::get<std::string>(row[1].value) == text(pad, i) &&
+                std::get<double>(row[2].value) == double(i) * 1.000123456789 &&
+                std::get<int>(row[3].value) == -i * 7 &&
+                list.size() == 2 && std::get<int>(list[1].value) == -i;
+            ++i;
+        }
+        allOk = allOk && i == count && r.IsValid();
+        if (!allOk)
+            break;
+    }
+    CHECK(allOk);
+}
+
+// ============================================================
+//  Tokenizer: "-5" is one number, "- 5" is still read as -5
+// ============================================================
+
+inline void Test_Bugfix_NegativeNumbers(const std::filesystem::path&) {
+    const std::string head = "@version: 2;\n@object: {\n\tA[2] {\n\t\tint/a, any/b\n\t};\n";
+
+    OTN::OTNReader r;
+    CHECK(r.ReadString(head + "\t-5, -2.5;\n\t- 6, - 7;\n};"));
+    const OTN::OTNObject* o = r.FindObject("A");
+    CHECK(o != nullptr);
+    if (o) {
+        CHECK_EQ(o->GetValue<int>(0, "a", 0), -5);
+        CHECK_EQ(o->GetValue<double>(0, "b", 0.0), -2.5);
+        CHECK_EQ(o->GetValue<int>(1, "a", 0), -6);
+        CHECK_EQ(o->GetValue<int>(1, "b", 0), -7);
+    }
+
+    OTN::OTNReader bad;
+    CHECK(!bad.ReadString(head + "\t--5, 1;\n\t1, 1;\n};"));
+    CHECK(!bad.ReadString("@version: -2;\n@object: {\n};"));
+}
+
+// ============================================================
 //  Entry point — call all regression tests
 // ============================================================
 
@@ -1264,4 +1393,7 @@ inline void RunBugfixTests(const std::filesystem::path& basePath) {
     RUN(Test_Bugfix_StreamWriterChecks);
     RUN(Test_Bugfix_StreamWriterEmpty);
     RUN(Test_Bugfix_SetTypeDescListAfterData);
+    RUN(Test_Bugfix_StreamManyReferences);
+    RUN(Test_Bugfix_TokensOverBlockBorder);
+    RUN(Test_Bugfix_NegativeNumbers);
 }

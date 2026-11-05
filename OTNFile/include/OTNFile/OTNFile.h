@@ -690,6 +690,9 @@ namespace OTN {
 	*/
 	class OTNObject {
 		friend class OTNObjectBuilder;
+		// the readers move the rows they read into the objects without copying and checking them again
+		friend class OTNReader;
+		friend class OTNStreamReader;
 	public:
 		/**
 		* @brief Construct a new OTN object with given name
@@ -742,7 +745,7 @@ namespace OTN {
 				};
 
 			constexpr size_t ArgCount = sizeof...(Args);
-			m_columnIndexCache.clear();
+			m_columnIndexCache.reset();
 			m_columnNames.clear();
 			m_columnNames.reserve(ArgCount);
 
@@ -1214,7 +1217,8 @@ namespace OTN {
 		std::vector<std::string> m_columnNames;
 		std::vector<OTNTypeDesc> m_columnTypes;
 		std::vector<OTNRow> m_dataRows;
-		mutable std::unordered_map<std::string, size_t> m_columnIndexCache;
+		// created on the first access by name, objects are often created without it (e.g. resolved references)
+		mutable std::unique_ptr<std::unordered_map<std::string, size_t>> m_columnIndexCache;
 
 		/**
 		* @brief Returns the column index for a given column name.
@@ -1263,6 +1267,8 @@ namespace OTN {
 		void SetNamesFromBuilder(std::vector<std::string>&& names);
 		bool SetTypesFromBuilder(const std::vector<std::string>& types);
 		void AddRowInternal(OTNRow&& row);
+		// sets data that was already checked (rows read from a file, names and types of a read object)
+		void SetCheckedData(const std::vector<std::string>& names, const std::vector<OTNTypeDesc>& types, OTNRow&& row);
 		bool AddSingleType(std::vector<OTNTypeDesc>& tempList, const std::string& typeStr);
 		bool DeduceTypesFromRow(const OTNRow& row);
 
@@ -2008,7 +2014,7 @@ namespace OTN {
 			std::unordered_map<std::size_t, std::size_t> rowIndexByHash;
 
 			// Adds row if not already present, returns index
-			size_t AddOrGetRow(const Row& row, bool deduplicateRows);
+			size_t AddOrGetRow(Row&& row, bool deduplicateRows);
 		private:
 			static size_t CreateRowHash(const std::vector<OTNTypeDesc>& columnTypes, const Row& row);
 			// static size_t HashValue(const SerializedValue& serValue);
@@ -2493,7 +2499,7 @@ namespace OTN {
 		};
 
 		// object rows that are currently resolved, used to detect cyclic references
-		using RefStack = std::vector<std::pair<std::string, size_t>>;
+		using RefStack = std::vector<std::pair<const std::string*, size_t>>;
 
 		std::string m_error;
 		bool m_valid = true;
@@ -2543,9 +2549,11 @@ namespace OTN {
 	* - Object references are resolved to OTNObjects (one row each) by default,
 	*   see SetResolveObjectRefs(). Unresolved references are Detail::OTNObjectRef values.
 	*
-	* - Before every read operation the file size and modification time are checked.
+	* - NextObject(), ReadObject(), ReadObjectRow() and GetObjectNames() check the file size and modification time.
 	*   If the file was changed since the scan, it is scanned again automatically and
 	*   the current read position (object name + row) is restored.
+	*   ReadRow() and SkipCurrentObject() do not check the file (the check costs more than reading a row),
+	*   the file must not be changed while the rows of an object are read.
 	*/
 	class OTNStreamReader {
 	public:
@@ -2650,12 +2658,18 @@ namespace OTN {
 		// every n-th row the file position is stored in the index
 		static constexpr size_t ROW_CHECKPOINT_INTERVAL = 1024;
 		static constexpr size_t NO_OBJECT = static_cast<size_t>(-1);
+		static constexpr size_t NO_ROW = static_cast<size_t>(-1);
 
 		// index entry of one object, created by Scan()
 		struct ObjectInfo {
 			Detail::ObjectHeaderInfo header;
 			// position of row 0, ROW_CHECKPOINT_INTERVAL, 2 * ROW_CHECKPOINT_INTERVAL, ...
 			std::vector<Detail::FilePosition> rowCheckpoints;
+
+			// row behind the last row loaded by LoadObjectRow and its position.
+			// References are often read in order, then the next row is read without skipping rows.
+			mutable size_t nextRow = NO_ROW;
+			mutable Detail::FilePosition nextRowPosition;
 		};
 
 		// object row currently being resolved, used to detect cyclic references

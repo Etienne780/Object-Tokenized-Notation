@@ -34,7 +34,7 @@ The `RefStack` contains the rows that are currently being resolved. Reaching one
 
 **Scan**
 
-`Open` reads the file once from start to end (`CharSource::OpenFile`, 64 KB buffer) and creates the index:
+`Open` reads the file once from start to end (`CharSource::OpenFile`, read in 64 KB blocks) and creates the index:
 
 ```cpp
 struct ObjectInfo {
@@ -57,8 +57,10 @@ With `SetResolveObjectRefs(true)` (default) every `OBJECT_REF` in a returned row
 
 **Changed files**
 
-Before every read, `EnsureUpToDate` compares the file size and modification time with the values from the scan. If they differ, `Scan` runs again. The current object is found by name and the row position is restored. If the object is gone or has fewer rows than already read, the reader reports an error.
+`NextObject`, `ReadObject`, `ReadObjectRow` and `GetObjectNames` call `EnsureUpToDate`. It compares the file size and modification time with the values from the scan. If they differ, `Scan` runs again. The current object is found by name and the row position is restored. If the object is gone or has fewer rows than already read, the reader reports an error.
 
 **Memory**
 
-The reader keeps the index (one `FilePosition` per 1024 rows and object) and a 64 KB read buffer. Rows are only in memory while they are returned.
+The reader keeps the index (one `FilePosition` per 1024 rows and object) and up to 4 blocks of 64 KB of the file, the last used ones. Reading references jumps between objects, the blocks of both stay loaded. For every object the position behind the last loaded row is kept, so references that are read in order need no skipping from the checkpoint. Rows are only in memory while they are returned.
+
+`ReadRow` and `SkipCurrentObject` do not call `EnsureUpToDate`, the file check took longer than reading a row.
