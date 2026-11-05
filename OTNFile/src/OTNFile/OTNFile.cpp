@@ -1397,13 +1397,9 @@ namespace OTN {
 
 			template<typename T>
 			static void AppendNumber(std::string& out, T value) {
+				// without precision floating point numbers get the shortest text that is read back exactly (0.8 instead of 0.80000000000000004)
 				char buf[64];
-				std::to_chars_result r;
-				if constexpr (std::is_floating_point_v<T>)
-					r = std::to_chars(buf, buf + sizeof(buf), value,
-						std::chars_format::general, std::numeric_limits<T>::max_digits10);
-				else
-					r = std::to_chars(buf, buf + sizeof(buf), value);
+				const std::to_chars_result r = std::to_chars(buf, buf + sizeof(buf), value);
 
 				if (r.ec == std::errc())
 					out.append(buf, r.ptr);

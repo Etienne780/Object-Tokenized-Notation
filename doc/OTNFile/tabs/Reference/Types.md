@@ -78,7 +78,7 @@ So that the type used for writing does not matter, numbers in `any` columns can 
 | `5000000000` | `int` | fails, too large |
 | `-1` | `uint64_t` | fails, negative |
 
-Floating point numbers are written with full precision, so a `float` or `double` is read back exactly.
+Floating point numbers are written with the shortest text that is read back exactly (`0.8`, not `0.80000000000000004`), so a `float` or `double` is read back exactly with its own type.
 
 ## Names
 
