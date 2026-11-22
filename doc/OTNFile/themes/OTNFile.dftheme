@@ -6,7 +6,7 @@
     "name": "OTNFile",
     "builtIn": false,
     "createdAt": 1789626987427,
-    "lastOpenedAt": 1789626987427,
+    "lastOpenedAt": 1795354817307,
     "settings": {
       "entries": [
         {
@@ -375,7 +375,12 @@
           "active": true
         }
       ],
-      "langStyleIds": {},
+      "langStyleIds": {
+        "OtnLang": {
+          "id": "highlightStyle_OtnLang_Dark_",
+          "isBuiltIn": true
+        }
+      },
       "mapping": []
     }
   }
