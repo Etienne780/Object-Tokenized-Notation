@@ -796,8 +796,8 @@ inline void Test_Bugfix_PathErrors(const std::filesystem::path& dir) {
     CHECK(!r.IsValid());
 
     OTN::OTNReader r2;
-    CHECK(!r2.ReadFile(dir / "wrong_extension.txt"));
-    CHECK(r2.GetError().find("extension") != std::string::npos);
+    CHECK(!r2.ReadFile(dir / "missing_file.txt"));
+    CHECK(r2.GetError().find("open") != std::string::npos);
 
     OTN::OTNStreamReader sr;
     CHECK(!sr.Open(dir / "missing_dir" / "missing.otn"));

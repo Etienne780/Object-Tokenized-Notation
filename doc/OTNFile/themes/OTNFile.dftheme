@@ -95,6 +95,11 @@
           "active": true
         },
         {
+          "name": "code-indent-guide",
+          "value": "#7a7a95",
+          "active": false
+        },
+        {
           "name": "heading",
           "value": "#eef0f8",
           "active": true
@@ -112,6 +117,71 @@
         {
           "name": "table-stripe",
           "value": "#e0dbd0",
+          "active": false
+        },
+        {
+          "name": "checkbox",
+          "value": "#22d4a8",
+          "active": false
+        },
+        {
+          "name": "bullet",
+          "value": "#22d4a8",
+          "active": false
+        },
+        {
+          "name": "footnote",
+          "value": "#22d4a8",
+          "active": false
+        },
+        {
+          "name": "section-background",
+          "value": "#13131c",
+          "active": false
+        },
+        {
+          "name": "section-title",
+          "value": "#f0ebe0",
+          "active": false
+        },
+        {
+          "name": "section-border",
+          "value": "#252538",
+          "active": false
+        },
+        {
+          "name": "section-icon",
+          "value": "#22d4a8",
+          "active": false
+        },
+        {
+          "name": "header-background",
+          "value": "#13131c",
+          "active": false
+        },
+        {
+          "name": "header-text",
+          "value": "#9898b0",
+          "active": false
+        },
+        {
+          "name": "sidebar-background",
+          "value": "#13131c",
+          "active": false
+        },
+        {
+          "name": "sidebar-text",
+          "value": "#9898b0",
+          "active": false
+        },
+        {
+          "name": "toc-background",
+          "value": "#0c0c12",
+          "active": false
+        },
+        {
+          "name": "toc-text",
+          "value": "#7a7a95",
           "active": false
         },
         {

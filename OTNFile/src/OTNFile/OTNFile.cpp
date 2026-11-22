@@ -174,28 +174,8 @@ namespace OTN {
 			}
 		}
 
-		// File extension check
-		if (finalPath.has_extension()) {
-			std::string ext = PathToString(finalPath.extension());
-			std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
-				return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-			});
-
-			if (ext != FILE_EXTENSION) {
-				std::string validExt{ FILE_EXTENSION };
-				std::string validExtUpper = validExt;
-				std::transform(validExtUpper.begin(), validExtUpper.end(), validExtUpper.begin(), [](char c) {
-					return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
-				});
-
-				errorOut = "File extension '" + ext +
-					"' is invalid, valid extensions are " +
-					validExtUpper + ", " + validExt + "!";
-				return false;
-			}
-		}
-		else {
-			// Append default extension
+		// Append the default extension if the path has none, any other extension is accepted as is
+		if (!finalPath.has_extension()) {
 			finalPath += OTN::FILE_EXTENSION;
 		}
 

@@ -345,6 +345,36 @@ inline void Test_WR_ExtensionAutoAppend(const std::filesystem::path& dir) {
 }
 
 // ============================================================
+//  Custom extensions are kept as is (no .otn appended, no error)
+// ============================================================
+
+inline void Test_WR_CustomExtension(const std::filesystem::path& dir) {
+    for (const char* name : { "custom_ext.txt", "custom_ext_upper.OTN", "custom_ext.data" }) {
+        auto path = MakeTestFile(dir, name);
+        std::filesystem::remove(path);
+
+        OTN::OTNObject obj("CustomExt");
+        obj.SetNames("v").AddDataRow(42);
+
+        OTN::OTNWriter w;
+        CHECK(w.AppendObject(obj).Save(path));
+        CHECK(w.IsValid());
+
+        CHECK(std::filesystem::exists(path));
+        CHECK(!std::filesystem::exists(path.string() + ".otn"));
+
+        OTN::OTNReader reader;
+        CHECK(reader.ReadFile(path));
+        CHECK(reader.IsValid());
+
+        auto loaded = reader.TryGetObject("CustomExt");
+        CHECK(loaded.has_value());
+        if (!loaded) continue;
+        CHECK_EQ(loaded->GetValue<int>(0, "v"), 42);
+    }
+}
+
+// ============================================================
 //  Reader — TryGetObject for missing key
 // ============================================================
 
@@ -448,6 +478,7 @@ inline void RunWriterReaderTests(const std::filesystem::path& basePath) {
     RUN(Test_WR_LargeData);
     RUN(Test_WR_ClearObjects);
     RUN(Test_WR_ExtensionAutoAppend);
+    RUN(Test_WR_CustomExtension);
     RUN(Test_Reader_MissingObject);
     RUN(Test_Reader_Version);
     RUN(Test_Reader_GetObjectsMap);

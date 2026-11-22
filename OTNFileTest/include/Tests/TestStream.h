@@ -648,6 +648,36 @@ inline void Test_Stream_SameNameAppended(const std::filesystem::path& dir) {
 }
 
 // ============================================================
+//  Custom extensions are kept as is by StreamWriter / StreamReader
+// ============================================================
+
+inline void Test_Stream_CustomExtension(const std::filesystem::path& dir) {
+    auto path = MakeTestFile(dir, "stream_custom_ext.txt");
+    std::filesystem::remove(path);
+
+    OTN::OTNStreamWriter sw;
+    CHECK(sw.Open(path));
+    CHECK(sw.BeginObject("CustomExt", OTN::col("v", "int")));
+    CHECK(sw.WriteRow(7));
+    CHECK(sw.EndObject());
+    CHECK(sw.Close());
+    CHECK(sw.IsValid());
+
+    CHECK(std::filesystem::exists(path));
+    CHECK(!std::filesystem::exists(path.string() + ".otn"));
+
+    OTN::OTNStreamReader sr;
+    CHECK(sr.Open(path));
+    bool gotObj = sr.NextObject();
+    CHECK(gotObj);
+    if (!gotObj)
+        return;
+
+    CHECK_EQ(sr.GetCurrentObjectName(), std::string("CustomExt"));
+    CHECK_EQ(sr.GetRemainingRowCount(), size_t(1));
+}
+
+// ============================================================
 //  Entry point — call all stream tests
 // ============================================================
 
@@ -670,4 +700,5 @@ inline void RunStreamTests(const std::filesystem::path& basePath) {
     RUN(Test_Stream_CyclicReference);
     RUN(Test_Stream_WriteRowCustomType);
     RUN(Test_Stream_SameNameAppended);
+    RUN(Test_Stream_CustomExtension);
 }

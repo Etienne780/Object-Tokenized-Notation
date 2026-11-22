@@ -180,7 +180,7 @@ With `UseOptimizations(true)` all optional spaces and line breaks are removed:
 
 ## File names
 
-The extension is `.otn`. A path without an extension gets `.otn`, a different extension is an error. `OTNStreamWriter` uses a temporary file with the extension `.otn.tmp` next to the target file while writing.
+The default extension is `.otn`. A path without an extension gets `.otn`, any other extension (e.g. `.txt`) is accepted and kept as is. `OTNStreamWriter` uses a temporary file with the extension `.otn.tmp` next to the target file while writing.
 
 ## Versions {#file-versions}
 

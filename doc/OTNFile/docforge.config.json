@@ -7,7 +7,8 @@
     "formatGuide": {
       "enabled": true,
       "preferences": ""
-    }
+    },
+    "tabSize": 2
   },
   "languagesStyles": [],
   "links": [
@@ -115,7 +116,8 @@
         "anchor": null
       },
       "refs": [
-        "node_mu55p95xweb2mx16dzzse"
+        "node_mu55p95xweb2mx16dzzse",
+        "node_w3f6j0p8u2lcy5mx9tbe"
       ]
     },
     {
@@ -129,7 +131,9 @@
       "refs": [
         "node_mu55p95xweb2mx16dzzse",
         "node_mu55p95x1j1aoqjvokje3",
+        "node_mu55p95xk2i6alcuiyw",
         "node_q7k2m9x4w1btr8vz3hpd",
+        "node_h4t9b1s6e3xan7pk2rwc",
         "node_mu55p95x1mur4st1tuzfby",
         "node_mu55p95x16kjtnh1dqih2o",
         "node_mu55p95x60r14y7tsvw1"
@@ -254,7 +258,9 @@
         "nodeId": "node_mu55p95x1mur4st1tuzfby",
         "anchor": "file-versions"
       },
-      "refs": []
+      "refs": [
+        "node_mu55p95x1mur4st1tuzfby"
+      ]
     }
   ],
   "tabs": [

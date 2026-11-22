@@ -52,7 +52,7 @@ writer.AppendObject(items)
 
 - `AppendObject` copies the object, later changes to `items` are not written.
 - Every object name may only be used once per file.
-- Missing folders are created. A path without extension gets `.otn`, any other extension is an error.
+- Missing folders are created. A path without extension gets `.otn`, any other extension is kept as is.
 
 To get the text instead of a file:
 
