@@ -9,7 +9,7 @@ An overview of how the library is built. The following pages describe the parts 
 
 ## Layers
 
-```text
+```
  OTNWriter   OTNStreamWriter   OTNReader   OTNStreamReader     classes: flow, objects, references
       \            |               |            /
        \           |               |           /
@@ -26,11 +26,25 @@ An overview of how the library is built. The following pages describe the parts 
 
 ## Files
 
-| File | Content |
-|---|---|
-| `OTNFile/include/OTNFile/OTNFile.h` | Public API, data model, templates (`OTNDataType`, `TryDeserializeValue`), info structs |
-| `OTNFile/src/OTNFile/OTNFile.cpp` | Everything else |
-| `OTNFileTest/` | Test program, the tests are in `include/Tests/*.h` |
+```tree
+OTNFile/
+  include/OTNFile/
+    OTNFile.h            # public API, data model, templates (OTNDataType, TryDeserializeValue), info structs
+  src/OTNFile/
+    OTNFile.cpp          # everything else
+OTNFileTest/             # test program
+  include/
+    TestFramework.h      # CHECK / RUN macros
+    Tests/
+      TestHelpers.h      # shared helpers and custom types
+      TestObject.h
+      TestWriterReader.h
+      TestStream.h
+      TestBugfixes.h
+  main.cpp
+premake5.lua
+build.bat
+```
 
 `OTNFile.cpp` is split into regions:
 
@@ -54,7 +68,7 @@ An overview of how the library is built. The following pages describe the parts 
 
 The project uses premake (`premake5.lua`, `build.bat`). The test program `OTNFileTest` gets an output folder as argument, runs all tests and prints the number of passed and failed tests:
 
-```text
+```
 OTNFileTest <output_directory>
 ```
 

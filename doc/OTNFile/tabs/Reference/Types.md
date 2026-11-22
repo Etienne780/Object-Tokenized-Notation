@@ -59,9 +59,9 @@ obj.SetNames("value").SetTypes("any")
 Values are read with the type they should have:
 
 ```cpp
-int i       = obj.GetValue<int>(0, "value", 0);
-auto pos    = obj.TryGetValue<Vector2>(3, "value");
-auto path   = obj.TryGetValue<std::vector<Vector2>>(4, "value");
+int i = obj.GetValue<int>(0, "value", 0);
+auto pos = obj.TryGetValue<Vector2>(3, "value");
+auto path = obj.TryGetValue<std::vector<Vector2>>(4, "value");
 ```
 
 Custom types and `OTNObject`s are written as rows of their own object, the `any` value references them with `Name#index` (see [[file-format]]). An `OTNObject` with several rows becomes a list of references and is read as `std::vector<OTNObject>`.

@@ -9,6 +9,7 @@ name: Stream Reader
 
 ## Opening a file
 
+{indent=4}
 ```cpp
 OTN::OTNStreamReader reader;
 if (!reader.Open("world.otn")) {
@@ -24,6 +25,7 @@ for (const std::string& name : reader.GetObjectNames())
 
 ## Reading row by row
 
+{indent=4}
 ```cpp
 while (reader.NextObject()) {
     std::cout << reader.GetCurrentObjectName() << ": "
@@ -45,6 +47,7 @@ while (reader.NextObject()) {
 
 Any row or object can be read directly, independent of the current position:
 
+{indent=4}
 ```cpp
 std::optional<OTN::OTNObject> row = reader.ReadObjectRow("Enemy", 5000);
 if (row) {

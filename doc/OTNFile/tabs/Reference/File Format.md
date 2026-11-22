@@ -7,6 +7,10 @@ name: File Format
 
 An `.otn` file is UTF-8 text. It starts with a header of directives, followed by one `@object` block that contains all objects.
 
+{depth=2}
+[toc]
+
+{indent=2}
 ```otn
 @version: 2;
 
@@ -27,6 +31,7 @@ Spaces, tabs and line breaks between tokens have no meaning. Comments are not su
 
 ## Structure
 
+{col 0: width=175px}
 | Part | Required | Content |
 |---|---|---|
 | `@version: N;` | yes | Format version, always the first statement. Files are written with version `2`, versions `1` and `2` can be read (see [[file-versions]]). |
@@ -40,12 +45,16 @@ Unknown directives are an error.
 
 ## Objects
 
+{indent=2}
 ```otn
-Name[rowCount] {
-	type/column, type/column, ...
+@object: {
+  // rowCount = 10
+  Name[10] {
+  	type/column, type/column, ...
+  };
+  value, value, ...;
+  value, value, ...;
 };
-value, value, ...;
-value, value, ...;
 ```
 
 - `Name` is the object name. Every name may only appear once per file. Names consist of letters, digits, `_` and UTF-8 characters and do not start with a digit.
@@ -57,6 +66,7 @@ Objects can appear in any order. A reference may point to an object that comes l
 
 ## Types
 
+{striped}
 | Type in the file | Values |
 |---|---|
 | `int`, `int64`, `uint64` | Integers: `42`, `-7` |
@@ -75,7 +85,9 @@ Numbers in `any` columns get the smallest type that fits: `int`, then `int64`, t
 
 A `Ref<Name>` column stores row indices of the object `Name`:
 
+{indent=2}
 ```otn
+@object: {
 	Vector2[3] {
 		float/x, float/y
 	};
@@ -86,6 +98,7 @@ A `Ref<Name>` column stores row indices of the object `Name`:
 		int/id, Ref<Vector2>/position, Ref<Vector2>[]/path
 	};
 	1, 0, [1, 2];
+};
 ```
 
 `position` is row 0 of `Vector2`, `path` the rows 1 and 2. When reading, an index that does not exist in the target object is an error.
@@ -94,7 +107,9 @@ A `Ref<Name>` column stores row indices of the object `Name`:
 
 An `any` column has no object type, so a reference contains the object name: `Name#index`.
 
+{indent=2}
 ```otn
+@object: {
 	Values[5] {
 		any/value
 	};
@@ -103,6 +118,7 @@ An `any` column has no object type, so a reference contains the object name: `Na
 	[Vector2#1, Vector2#2];
 	[Item#0, Item#1];
 	"text";
+};
 ```
 
 - `Vector2#0` is row 0 of `Vector2`, a single custom type value.
@@ -115,6 +131,7 @@ Like in `Ref` columns, a missing object or row is an error when reading.
 
 With `UseDefType(true)` / `UseDefName(true)` the writer replaces type and column names by numbers where this makes the file shorter:
 
+{indent=2}
 ```otn
 @version: 2;
 @defType: String = 0, float = 1;
@@ -145,6 +162,7 @@ A name only gets a number if the characters saved by all its uses are more than 
 
 `@defType` can also contain object names. Then the number replaces `Ref<Name>` in the header and the name in references of `any` columns:
 
+{indent=2}
 ```otn
 @version: 2;
 @defType: Vector2 = 0;

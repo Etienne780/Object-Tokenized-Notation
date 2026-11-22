@@ -9,6 +9,7 @@ name: Reading Data
 
 ## Reading a file
 
+{indent=4}
 ```cpp
 OTN::OTNReader reader;
 if (!reader.ReadFile("data.otn")) {
@@ -23,6 +24,7 @@ If anything in the file is invalid, reading fails. Do not use the objects of a f
 
 ## Getting objects
 
+{indent=4}
 ```cpp
 std::optional<OTN::OTNObject> items = reader.TryGetObject("Items");
 if (!items) {
@@ -32,6 +34,7 @@ if (!items) {
 
 `TryGetObject` returns a copy. `FindObject` returns a pointer to the stored object instead, `nullptr` if the name does not exist:
 
+{indent=4}
 ```cpp
 if (const OTN::OTNObject* items = reader.FindObject("Items")) {
     float value = items->GetValue<float>(0, "value", 0.0f);
@@ -40,6 +43,7 @@ if (const OTN::OTNObject* items = reader.FindObject("Items")) {
 
 The pointer is valid until the next `ReadFile` / `ReadString` or until the reader is destroyed. `GetObjects()` returns all objects:
 
+{indent=4}
 ```cpp
 for (const auto& [name, object] : reader.GetObjects()) {
     // ...
@@ -65,6 +69,7 @@ std::optional<std::string> name = items->TryGetValue<std::string>(0, 1);
 
 Iterating all rows:
 
+{indent=4}
 ```cpp
 for (size_t row = 0; row < items->GetRowCount(); ++row) {
     int id = items->GetValue<int>(row, "id", -1);

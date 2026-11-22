@@ -7,8 +7,12 @@ name: Custom Types
 
 Your own structs can be used like any other value. You only have to specialize `OTN::ToOTNDataType<T>` once. The same function is used for saving and for loading.
 
+{depth=2}
+[toc]
+
 ## Defining a type
 
+{indent=4}
 ```cpp
 struct Vector2 {
     float x = 0;
@@ -41,6 +45,7 @@ entities.SetNames("id", "position", "path")
 
 Every value becomes one row of the object `Vector2`. The column stores the row index:
 
+{indent=2}
 ```otn
 @version: 2;
 
@@ -71,6 +76,7 @@ Custom types work with `OTNWriter`, `OTNStreamWriter` (also in `WriteRow`), `OTN
 
 A type can contain other custom types, lists and strings:
 
+{indent=4}
 ```cpp
 struct Transform {
     Vector2 position;
@@ -93,6 +99,7 @@ The column types are deduced from the values. Set them yourself when this is not
 - a list member that is empty in all values (no element type),
 - a member that should be stored in an `any` column.
 
+{indent=4}
 ```cpp
 struct Setting {
     std::vector<std::string> tags;
@@ -120,6 +127,7 @@ inline void OTN::ToOTNDataType<Setting>(OTN::OTNObjectBuilder& obj, Setting& s) 
 
 `IsBuildingOTNObject()` returns `true` while saving. Use it when the stored form differs from the struct:
 
+{indent=4}
 ```cpp
 template<>
 inline void OTN::ToOTNDataType<Vector2>(OTN::OTNObjectBuilder& obj, Vector2& v) {

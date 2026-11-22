@@ -9,6 +9,7 @@ How values and column types are represented in memory. The type strings used in 
 
 ## OTNBaseType
 
+{indent=4}
 ```cpp
 enum class OTNBaseType {
     UNKNOWN = 0,
@@ -26,6 +27,7 @@ enum class OTNBaseType {
 
 Describes the type of a column:
 
+{indent=4}
 ```cpp
 struct OTNTypeDesc {
     OTNBaseType baseType = OTNBaseType::UNKNOWN;
@@ -47,6 +49,7 @@ struct OTNTypeDesc {
 
 A value is a variant plus its type:
 
+{indent=4}
 ```cpp
 using OTNValueVariant = std::variant<
     int, int64_t, uint64_t, float, double, bool, std::string,

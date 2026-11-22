@@ -11,11 +11,11 @@ C++ values are converted into `OTNValue`s when they are added to a row, and back
 
 `Detail::OTNDataType<T>` converts one value. It is used by `OTNObject::AddDataRow`, `OTNObjectBuilder::AddData` and `OTNStreamWriter::WriteRow`.
 
-```text
+```cpp
 AddDataRow(1, Vector2{ 1, 2 })
-    OTNDataType<int>(1)            -> int
-    OTNDataType<Vector2>(v)        -> OTNObjectBuilder + ToOTNDataType<Vector2>
-                                   -> shared_ptr<OTNObject> (one row)
+    OTNDataType<int>(1) // -> int
+    OTNDataType<Vector2>(v) // -> OTNObjectBuilder + ToOTNDataType<Vector2>
+                            // -> shared_ptr<OTNObject> (one row)
 ```
 
 | C++ type | Stored as |

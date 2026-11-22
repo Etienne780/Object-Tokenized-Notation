@@ -23,7 +23,7 @@ if (!reader.ReadFile("data.otn"))
 
 Read errors contain the position in the file:
 
-```text
+```
 Error at line 7, column 12: unexpected token IDENTIFIER("abc"), expected ';'
 ```
 
@@ -39,6 +39,7 @@ After an error all following calls fail until the state is reset:
 | `OTNStreamWriter` | `Open()` starts with a new state |
 | `OTNStreamReader` | `Open()` starts with a new state |
 
+{indent=4}
 ```cpp
 OTN::OTNWriter writer;
 if (!writer.AppendObject(obj).Save("data.otn")) {

@@ -99,7 +99,7 @@ A range is `[offset, length]` in bytes. Every row here is 7 bytes long: tab, `1,
 
 Content of `world.otn.tmp` before `Close()` (`→` is a tab):
 
-```text
+```
 offset  bytes        object
 0       →1, 2;\n     Vector2  row 0
 7       →1, 0;\n     Position row 0
@@ -118,6 +118,9 @@ The rows of the two objects are mixed. Only the ranges in memory tell which byte
 2. For every block in the order of first use (`Position`, then `Vector2`): `WriteObjectHeader` with the final row count, then copy the ranges of the block from the temporary file (64 KB buffer).
 3. `WriteObjectBlockEnd`, then the temporary file is deleted.
 
+The finished `world.otn`[^arrows]:
+
+{indent=2}
 ```otn
 @version: 2;
 
@@ -125,18 +128,18 @@ The rows of the two objects are mixed. Only the ranges in memory tell which byte
 	Position[2] {
 		int/id, Ref<Vector2>/pos
 	};
-	1, 0;          ← copied from offset 7
-	2, 1;          ← copied from offset 21
+	1, 0; // ← copied from offset 7
+	2, 1; // ← copied from offset 21
 	Vector2[3] {
 		float/x, float/y
 	};
-	1, 2;          ← copied from offset 0
-	3, 4;          ← copied from offset 14
-	5, 6;          ← copied from offset 28
+	1, 2; // ← copied from offset 0
+	3, 4; // ← copied from offset 14
+	5, 6; // ← copied from offset 28
 };
 ```
 
-(The arrows are only explanation, they are not in the file.)
+[^arrows]: The arrows (`← copied from offset …`) are only explanation, they are not in the file.
 
 Until `Close()` the target file `world.otn` stays empty.
 

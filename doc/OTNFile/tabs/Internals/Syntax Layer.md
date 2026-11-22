@@ -7,6 +7,9 @@ name: Syntax Layer
 
 All knowledge about the file syntax is in one place: the region `Syntax` at the top of `OTNFile.cpp`. The four reader and writer classes never write or parse text themselves, they only exchange info structs with the syntax functions. A new format version therefore only needs new syntax functions.
 
+{depth=2}
+[toc]
+
 ## Info structs
 
 Declared in `OTNFile.h` in `OTN::Detail`, because the classes store them as members:
@@ -40,6 +43,8 @@ Token types: `KEYWORD_PREFIX` (`@`), `IDENTIFIER`, `NUMBER`, `STRING`, `MINUS`, 
 
 Every format version has its own namespace with read and write functions. A newer version is defined after the older one and reuses everything that did not change:
 
+::: Declarations of V1 and V2
+{indent=4}
 ```cpp
 namespace Detail {
     // independent of the version
@@ -47,12 +52,12 @@ namespace Detail {
 
     namespace V1 {
         // read
-        std::optional<FileHeaderInfo>   ReadFileHeader(Tokenizer&, uint8_t version);
-        bool                            HasMoreObjects(Tokenizer&);
+        std::optional<FileHeaderInfo> ReadFileHeader(Tokenizer&, uint8_t version);
+        bool HasMoreObjects(Tokenizer&);
         std::optional<ObjectHeaderInfo> ReadObjectHeader(Tokenizer&, const FileHeaderInfo&);
-        std::optional<OTNRow>           ReadRow(Tokenizer&, const std::vector<OTNTypeDesc>&, const FileHeaderInfo&);
-        bool                            SkipRow(Tokenizer&);
-        bool                            ReadObjectBlockEnd(Tokenizer&);
+        std::optional<OTNRow> ReadRow(Tokenizer&, const std::vector<OTNTypeDesc>&, const FileHeaderInfo&);
+        bool SkipRow(Tokenizer&);
+        bool ReadObjectBlockEnd(Tokenizer&);
 
         // write
         void WriteFileHeader(std::string&, const WriteOptions&, const FileHeaderInfo&);
@@ -67,8 +72,8 @@ namespace Detail {
 
     namespace V2 {
         // new: references in 'any' values, object names in @defType
-        std::optional<OTNValue>       ReadAnyValue(Tokenizer&, const V1::ValueContext&);
-        std::optional<OTNRow>         ReadRow(Tokenizer&, const std::vector<OTNTypeDesc>&, const FileHeaderInfo&);
+        std::optional<OTNValue> ReadAnyValue(Tokenizer&, const V1::ValueContext&);
+        std::optional<OTNRow> ReadRow(Tokenizer&, const std::vector<OTNTypeDesc>&, const FileHeaderInfo&);
         std::optional<FileHeaderInfo> ReadFileHeader(Tokenizer&, uint8_t version);
         bool WriteRow(std::string&, const WriteOptions&, const OTNRow&, const FileHeaderInfo&, std::string& error);
 
@@ -78,14 +83,21 @@ namespace Detail {
         using V1::WriteObjectBlockEnd;
         using V1::WriteObjectHeader;
 
-        const ReadSyntax READ_SYNTAX = { ReadFileHeader, &V1::HasMoreObjects, &V1::ReadObjectHeader,
-                                         ReadRow, &V1::SkipRow, &V1::ReadObjectBlockEnd };
+        const ReadSyntax READ_SYNTAX = { 
+            ReadFileHeader, 
+            &V1::HasMoreObjects,
+            &V1::ReadObjectHeader,
+            ReadRow,
+            &V1::SkipRow,
+            &V1::ReadObjectBlockEnd
+        };
     }
 
     namespace Current = V2; // version that is written
     const ReadSyntax* GetReadSyntax(uint8_t version); // 1 -> V1::READ_SYNTAX, 2 -> V2::READ_SYNTAX
 }
 ```
+:::
 
 - **Writing** always uses `Current`. A `static_assert` checks that `Current` matches `OTN::VERSION`.
 - **Reading** first calls `ReadVersion`, then `GetReadSyntax(version)` returns the table of function pointers (`ReadSyntax`) for that version. Old files can therefore still be read after the format changed.
@@ -94,6 +106,7 @@ namespace Detail {
 
 Reading a value goes through `V1::ReadValue` → `V1::ReadList` → `ReadAnyValue`. Only the reading of `any` values changed in V2, so the value functions of V1 take a `V1::ValueContext`:
 
+{indent=4}
 ```cpp
 struct ValueContext {
     const FileHeaderInfo& file;  // for @defType ids
@@ -122,18 +135,19 @@ The classes do not have to be changed as long as the info structs contain everyt
 
 ## File grammar of V2
 
-```text
-file        = "@version" ":" NUMBER ";" header* "@object" ":" "{" object* "}" ";" EOF
-header      = ("@defType" | "@defName") ":" definition ("," definition)* ";"
-definition  = IDENTIFIER "=" NUMBER
-object      = IDENTIFIER "[" NUMBER "]" "{" (column ("," column)*)? "}" ";" row*
-column      = type "/" name
-type        = (IDENTIFIER | "Ref" "<" IDENTIFIER ">" | NUMBER) ("[" "]")*
-name        = IDENTIFIER | NUMBER
-row         = value ("," value)* ";"
-value       = NUMBER | "-" NUMBER | STRING | "true" | "false" | reference | list
-reference   = (IDENTIFIER | NUMBER) "#" NUMBER          (only in 'any' columns)
-list        = "[" (value ("," value)*)? "]"
+{label=none}
+```TOML
+file = "@version" ":" NUMBER ";" header* "@object" ":" "{" object* "}" ";" EOF
+header = ("@defType" | "@defName") ":" definition ("," definition)* ";"
+definition = IDENTIFIER "=" NUMBER
+object = IDENTIFIER "[" NUMBER "]" "{" (column ("," column)*)? "}" ";" row*
+column = type "/" name
+type = (IDENTIFIER | "Ref" "<" IDENTIFIER ">" | NUMBER) ("[" "]")*
+name = IDENTIFIER | NUMBER
+row = value ("," value)* ";"
+value = NUMBER | "-" NUMBER | STRING | "true" | "false" | reference | list
+reference = (IDENTIFIER | NUMBER) "#" NUMBER          (only in 'any' columns)
+list = "[" (value ("," value)*)? "]"
 ```
 
 The number of rows is given in the object header. A `NUMBER` as type or name is looked up in the `@defType` / `@defName` table. In `Ref<Name>` columns a value is only the row index (`NUMBER`).

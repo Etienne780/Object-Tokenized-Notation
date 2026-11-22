@@ -7,6 +7,9 @@ name: Writing Data
 
 Build your data with `OTNObject`, then save it with `OTNWriter`. `OTNWriter` keeps all objects in memory until `ClearObjects()` is called. For data that does not fit into memory use the [[stream-writer]].
 
+{depth=2}
+[toc]
+
 ## Building an object
 
 ```cpp
@@ -56,6 +59,7 @@ writer.AppendObject(items)
 
 To get the text instead of a file:
 
+{indent=4}
 ```cpp
 std::string text;
 if (writer.SaveToString(text)) {
@@ -80,6 +84,7 @@ player.SetNames("name", "pos", "inventory")
       .AddDataRow("Hero", Vector2{ 1, 2 }, inventory);
 ```
 
+{indent=2}
 ```otn
 @version: 2;
 
